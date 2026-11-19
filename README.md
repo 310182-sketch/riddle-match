@@ -21,7 +21,7 @@
 
 ## GitHub Pages 部署
 
-Repository 的 .github/workflows/pages.yml 會將 site/ 發布至 GitHub Pages。推送 main 或 master 分支時，workflow 會自動執行；其他分支可手動觸發。第一次部署前，請在 repository 的 **Settings → Pages → Build and deployment → Source** 選擇 **GitHub Actions**。
+Repository 的 .github/workflows/pages.yml 會將 site/ 發布至 GitHub Pages。推送 main、master 或 `codex/commonality-quiz-prototype` 分支時，workflow 會自動執行；目前原型分支可獨立發布，不需先覆蓋遠端 `main`。第一次部署前，請在 repository 的 **Settings → Pages → Build and deployment → Source** 選擇 **GitHub Actions**。
 
 ## 文件
 
