@@ -120,6 +120,7 @@
 - [x] 在一次性 PostgreSQL 16 資料庫加入多連線整合測試，重現封鎖交易和隨機配對、邀請加入的交錯，確認兩種請求都等待共用 advisory lock，並在封鎖提交後分別不配對和拒絕加入；run 45 的 GitHub Actions `block_race` job 通過。測試僅允許連接 loopback 主機。
 - [x] 在 PostgreSQL 16 多連線整合測試驗證同一帳號接近邀請房上限時並行呼叫 `create_invite_room`，確認交易鎖會序列化計數並拒絕第七間房；run 48 的 `block_race` job 通過。
 - [x] 在 PostgreSQL 16 多連線整合測試驗證同一帳號接近配對票券上限時並行呼叫 `queue_for_match`，確認不會因交易競態建立超過每 10 分鐘 12 張的票券；run 50 的 `block_race` job 通過。
+- [ ] 在 PostgreSQL 16 多連線整合測試驗證取消與配對競爭同一張等待票券：取消先取得列鎖時配對略過該票券；配對先取得列鎖時，取消等待後回報 `matched`。
 - [x] 以新增 migration 修正帳號刪除時檢舉只解除已刪除一方關聯的缺口；只要案件任一涉事玩家刪除帳號，就保留 180 天案件內容並同時清除兩方 ID。
 - [x] 將 Deno／PGlite migration 與 Edge Function 回歸測試接入 Pages workflow，驗證完成後才部署，並將 `pages: write`／`id-token: write` 權限限制在部署 job；run 41 已在 GitHub runner 完成驗證及部署。
 - [x] 將 PostgreSQL 16 多連線競態測試加入獨立 CI job，並要求它和既有 verify job 都成功後才部署；run 50 的 verify、`block_race` 與 deploy 均通過。

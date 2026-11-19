@@ -20,6 +20,8 @@ const users = {
   host: "00000000-0000-4000-8000-000000000201",
   guest: "00000000-0000-4000-8000-000000000202",
   quota: "00000000-0000-4000-8000-000000000203",
+  cancelTarget: "00000000-0000-4000-8000-000000000204",
+  cancelMatcher: "00000000-0000-4000-8000-000000000205",
 };
 
 async function connect(applicationName: string) {
@@ -81,15 +83,16 @@ async function setAuthenticatedUser(client: PgClient, userId: string) {
   );
 }
 
-async function waitForAdvisoryLock(
+async function waitForLock(
   admin: PgClient,
   applicationName: string,
+  expectedWaitEvent: string,
   isRequestFinished: () => boolean,
 ) {
-  let waitingForAdvisoryLock = false;
+  let waitingForLock = false;
   const deadline = Date.now() + 10000;
   while (
-    !waitingForAdvisoryLock && !isRequestFinished() && Date.now() < deadline
+    !waitingForLock && !isRequestFinished() && Date.now() < deadline
   ) {
     const activity = await admin.query<{
       wait_event_type: string | null;
@@ -103,21 +106,23 @@ async function waitForAdvisoryLock(
     `,
       [applicationName],
     );
-    waitingForAdvisoryLock = activity.rows.some((row: {
+    waitingForLock = activity.rows.some((row: {
       wait_event_type: string | null;
       wait_event: string | null;
-    }) => row.wait_event_type === "Lock" && row.wait_event === "advisory");
-    if (!waitingForAdvisoryLock && !isRequestFinished()) {
+    }) =>
+      row.wait_event_type === "Lock" && row.wait_event === expectedWaitEvent
+    );
+    if (!waitingForLock && !isRequestFinished()) {
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
   }
   assert(
-    waitingForAdvisoryLock,
-    `${applicationName} must wait on the transaction advisory lock`,
+    waitingForLock,
+    `${applicationName} must wait on the ${expectedWaitEvent} lock`,
   );
 }
 
-Deno.test("account limits and block writes serialize concurrent requests", async () => {
+Deno.test("matchmaking, cancellation, block, and quota races preserve ordering", async () => {
   const admin = await connect("block-race-admin");
   let blocker: PgClient | null = null;
   let matcher: PgClient | null = null;
@@ -125,21 +130,32 @@ Deno.test("account limits and block writes serialize concurrent requests", async
   let quotaWaiter: PgClient | null = null;
   let ticketQuotaHolder: PgClient | null = null;
   let ticketQuotaWaiter: PgClient | null = null;
+  let canceler: PgClient | null = null;
+  let cancelMatchmaker: PgClient | null = null;
   let blockerTransactionOpen = false;
   let matcherTransactionOpen = false;
   let quotaCreatorTransactionOpen = false;
   let quotaWaiterTransactionOpen = false;
   let ticketQuotaHolderTransactionOpen = false;
   let ticketQuotaWaiterTransactionOpen = false;
+  let cancelerTransactionOpen = false;
+  let cancelMatchmakerTransactionOpen = false;
   let requestPromise: ReturnType<PgClient["query"]> | null = null;
   let quotaRequestPromise: ReturnType<PgClient["query"]> | null = null;
   let ticketQuotaRequestPromise: ReturnType<PgClient["query"]> | null = null;
+  let matchingRaceCancelPromise: ReturnType<PgClient["query"]> | null = null;
 
   try {
     await applyMigrations(admin);
     await admin.query(
-      "insert into auth.users (id) values ($1), ($2), ($3)",
-      [users.host, users.guest, users.quota],
+      "insert into auth.users (id) values ($1), ($2), ($3), ($4), ($5)",
+      [
+        users.host,
+        users.guest,
+        users.quota,
+        users.cancelTarget,
+        users.cancelMatcher,
+      ],
     );
 
     for (let room = 0; room < 5; room += 1) {
@@ -191,9 +207,10 @@ Deno.test("account limits and block writes serialize concurrent requests", async
     const quotaRequestSettled = quotaRequestPromise.catch((error: unknown) => {
       quotaError = error;
     });
-    await waitForAdvisoryLock(
+    await waitForLock(
       admin,
       "invite-quota-waiter",
+      "advisory",
       () => quotaRequestFinished,
     );
 
@@ -269,9 +286,10 @@ Deno.test("account limits and block writes serialize concurrent requests", async
     ) => {
       ticketQuotaError = error;
     });
-    await waitForAdvisoryLock(
+    await waitForLock(
       admin,
       "matchmaking-quota-waiter",
+      "advisory",
       () => ticketQuotaRequestFinished,
     );
 
@@ -308,6 +326,121 @@ Deno.test("account limits and block writes serialize concurrent requests", async
     await ticketQuotaWaiter.end();
     ticketQuotaHolder = null;
     ticketQuotaWaiter = null;
+
+    const cancellationWonTicket = await admin.query<{ id: string }>(
+      `
+      insert into public.matchmaking_queue (user_id, topic_choice, nickname)
+      values ($1, 'travel', 'Cancel first')
+      returning id
+    `,
+      [users.cancelTarget],
+    );
+    canceler = await connect("cancel-race-canceler");
+    cancelMatchmaker = await connect("cancel-race-matcher");
+    await setAuthenticatedUser(canceler, users.cancelTarget);
+    cancelerTransactionOpen = true;
+    const cancellation = await canceler.query<{
+      response: { status: string };
+    }>("select public.cancel_matchmaking($1::uuid) as response", [
+      cancellationWonTicket.rows[0].id,
+    ]);
+    assertEquals(
+      cancellation.rows[0].response.status,
+      "cancelled",
+      "the waiting player can cancel before a match starts",
+    );
+
+    await setAuthenticatedUser(cancelMatchmaker, users.cancelMatcher);
+    cancelMatchmakerTransactionOpen = true;
+    const unpaired = await cancelMatchmaker.query<{
+      response: { status: string; ticket_id: string };
+    }>("select public.queue_for_match($1, $2) as response", [
+      "travel",
+      "Cancel racer",
+    ]);
+    assertEquals(
+      unpaired.rows[0].response.status,
+      "waiting",
+      "matchmaking skips a ticket locked by a cancellation",
+    );
+    const cancelledMatcherTicket = await cancelMatchmaker.query<{
+      response: { status: string };
+    }>("select public.cancel_matchmaking($1::uuid) as response", [
+      unpaired.rows[0].response.ticket_id,
+    ]);
+    assertEquals(
+      cancelledMatcherTicket.rows[0].response.status,
+      "cancelled",
+      "the unmatched requester can leave the queue",
+    );
+    await canceler.query("commit");
+    cancelerTransactionOpen = false;
+    await cancelMatchmaker.query("commit");
+    cancelMatchmakerTransactionOpen = false;
+
+    const matchingWonTicket = await admin.query<{ id: string }>(
+      `
+      insert into public.matchmaking_queue (user_id, topic_choice, nickname)
+      values ($1, 'travel', 'Match first')
+      returning id
+    `,
+      [users.cancelTarget],
+    );
+    await setAuthenticatedUser(cancelMatchmaker, users.cancelMatcher);
+    cancelMatchmakerTransactionOpen = true;
+    const matched = await cancelMatchmaker.query<{
+      response: { status: string };
+    }>("select public.queue_for_match($1, $2) as response", [
+      "travel",
+      "Match racer",
+    ]);
+    assertEquals(
+      matched.rows[0].response.status,
+      "matched",
+      "the matcher claims the candidate ticket first",
+    );
+
+    await setAuthenticatedUser(canceler, users.cancelTarget);
+    cancelerTransactionOpen = true;
+    let matchingRaceCancelFinished = false;
+    matchingRaceCancelPromise = canceler.query(
+      "select public.cancel_matchmaking($1::uuid) as response",
+      [matchingWonTicket.rows[0].id],
+    ).finally(() => {
+      matchingRaceCancelFinished = true;
+    });
+    let matchingRaceCancelError: unknown = null;
+    const matchingRaceCancelSettled = matchingRaceCancelPromise.catch((
+      error: unknown,
+    ) => {
+      matchingRaceCancelError = error;
+    });
+    await waitForLock(
+      admin,
+      "cancel-race-canceler",
+      "transactionid",
+      () => matchingRaceCancelFinished,
+    );
+    await cancelMatchmaker.query("commit");
+    cancelMatchmakerTransactionOpen = false;
+    await matchingRaceCancelSettled;
+    assertEquals(
+      matchingRaceCancelError,
+      null,
+      "cancellation completes after the match row is released",
+    );
+    const cancellationAfterMatch = await matchingRaceCancelPromise;
+    assertEquals(
+      cancellationAfterMatch.rows[0].response.status,
+      "matched",
+      "a cancellation waiting behind a match reports the matched state",
+    );
+    await canceler.query("commit");
+    cancelerTransactionOpen = false;
+    await cancelMatchmaker.end();
+    await canceler.end();
+    cancelMatchmaker = null;
+    canceler = null;
 
     const roomResult = await admin.query<{ id: string }>(
       `
@@ -354,9 +487,10 @@ Deno.test("account limits and block writes serialize concurrent requests", async
       matchmakingFinished = true;
     });
 
-    await waitForAdvisoryLock(
+    await waitForLock(
       admin,
       "block-race-matcher",
+      "advisory",
       () => matchmakingFinished,
     );
 
@@ -415,9 +549,10 @@ Deno.test("account limits and block writes serialize concurrent requests", async
       inviteJoinFinished = true;
     });
 
-    await waitForAdvisoryLock(
+    await waitForLock(
       admin,
       "block-race-invite-matcher",
+      "advisory",
       () => inviteJoinFinished,
     );
     await blocker.query("commit");
@@ -449,6 +584,12 @@ Deno.test("account limits and block writes serialize concurrent requests", async
     if (ticketQuotaWaiterTransactionOpen && ticketQuotaWaiter) {
       await ticketQuotaWaiter.query("rollback").catch(() => undefined);
     }
+    if (cancelerTransactionOpen && canceler) {
+      await canceler.query("rollback").catch(() => undefined);
+    }
+    if (cancelMatchmakerTransactionOpen && cancelMatchmaker) {
+      await cancelMatchmaker.query("rollback").catch(() => undefined);
+    }
     if (blockerTransactionOpen && blocker) {
       await blocker.query("rollback").catch(() => undefined);
     }
@@ -457,6 +598,9 @@ Deno.test("account limits and block writes serialize concurrent requests", async
     }
     if (ticketQuotaRequestPromise) {
       await ticketQuotaRequestPromise.catch(() => undefined);
+    }
+    if (matchingRaceCancelPromise) {
+      await matchingRaceCancelPromise.catch(() => undefined);
     }
     if (requestPromise) {
       await requestPromise.catch(() => undefined);
@@ -469,6 +613,8 @@ Deno.test("account limits and block writes serialize concurrent requests", async
       quotaWaiter?.end(),
       ticketQuotaHolder?.end(),
       ticketQuotaWaiter?.end(),
+      canceler?.end(),
+      cancelMatchmaker?.end(),
       blocker?.end(),
       matcher?.end(),
       admin.end(),
