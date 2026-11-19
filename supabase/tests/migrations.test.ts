@@ -12,6 +12,7 @@ const users = {
   host: "00000000-0000-4000-8000-000000000101",
   guest: "00000000-0000-4000-8000-000000000102",
   outsider: "00000000-0000-4000-8000-000000000103",
+  blocked: "00000000-0000-4000-8000-000000000104",
 };
 
 type JsonObject = Record<string, unknown>;
@@ -123,6 +124,29 @@ async function createPlayingRoom(db: PGlite) {
     roomId: String(created.room_id),
     inviteCode: String(created.invite_code),
   };
+}
+
+async function insertHistoryMatch(
+  db: PGlite,
+  userId: string,
+  opponentId: string,
+  nickname: string,
+  ageDays: number,
+  commonAnswers: number,
+) {
+  const result = await db.query<{ id: string }>(
+    `
+    insert into public.player_match_history (
+      room_id, user_id, opponent_user_id, opponent_nickname,
+      topic_key, completed_at, question_count, common_answer_count
+    ) values (
+      gen_random_uuid(), $1, $2, $3, 'travel',
+      clock_timestamp() - ($4::integer * interval '1 day'), 5, $5
+    ) returning id
+  `,
+    [userId, opponentId, nickname, ageDays, commonAnswers],
+  );
+  return result.rows[0].id;
 }
 
 Deno.test("Supabase migrations apply in order and protect private tables", async () => {
@@ -398,6 +422,360 @@ Deno.test("reports are private, deduplicated, and unavailable outside the room",
       roomMembers.rows[0].member_count,
       1,
       "blocked player not added",
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+Deno.test("random matchmaking respects topics, block lists, and cancellation", async () => {
+  const db = await createDatabase();
+  try {
+    await insertUsers(db);
+    await db.query(
+      "insert into public.player_blocks (blocker_user_id, blocked_user_id, blocked_nickname) values ($1, $2, $3)",
+      [users.guest, users.blocked, "Blocked"],
+    );
+
+    const hostTicket = await rpc(
+      db,
+      users.host,
+      "select public.queue_for_match($1, $2) as response",
+      ["travel", "Host"],
+    );
+    const guestTicket = await rpc(
+      db,
+      users.guest,
+      "select public.queue_for_match($1, $2) as response",
+      ["music", "Guest"],
+    );
+    assertEquals(hostTicket.status, "waiting", "first player waits");
+    assertEquals(
+      guestTicket.status,
+      "waiting",
+      "different selected topics do not match",
+    );
+
+    const randomMatch = await rpc(
+      db,
+      users.outsider,
+      "select public.queue_for_match($1, $2) as response",
+      ["random", "Random"],
+    );
+    assertEquals(randomMatch.status, "matched", "random player is matched");
+    assertEquals(randomMatch.topic_key, "travel", "selected topic is retained");
+    assertEquals(
+      randomMatch.opponent_nickname,
+      "Host",
+      "oldest compatible player is selected",
+    );
+
+    const hostStatus = await rpc(
+      db,
+      users.host,
+      "select public.get_match_status($1::uuid) as response",
+      [hostTicket.ticket_id],
+    );
+    assertEquals(hostStatus.status, "matched", "host ticket is matched");
+    assertEquals(hostStatus.room_id, randomMatch.room_id, "shared room id");
+
+    const blockedQueue = await rpc(
+      db,
+      users.blocked,
+      "select public.queue_for_match($1, $2) as response",
+      ["music", "Blocked"],
+    );
+    assertEquals(
+      blockedQueue.status,
+      "waiting",
+      "mutually blocked players do not match",
+    );
+    const guestStatus = await rpc(
+      db,
+      users.guest,
+      "select public.get_match_status($1::uuid) as response",
+      [guestTicket.ticket_id],
+    );
+    assertEquals(
+      guestStatus.status,
+      "waiting",
+      "blocked candidate keeps waiting",
+    );
+
+    const cancelled = await rpc(
+      db,
+      users.blocked,
+      "select public.cancel_matchmaking($1::uuid) as response",
+      [blockedQueue.ticket_id],
+    );
+    assertEquals(cancelled.status, "cancelled", "waiting ticket is cancelled");
+  } finally {
+    await db.close();
+  }
+});
+
+Deno.test("history cursor and commonality ranking enforce their time and match limits", async () => {
+  const db = await createDatabase();
+  try {
+    await insertUsers(db);
+    await insertHistoryMatch(db, users.host, users.guest, "Guest oldest", 3, 5);
+    await insertHistoryMatch(db, users.host, users.guest, "Guest middle", 2, 0);
+
+    const beforeThreshold = await rpc(
+      db,
+      users.host,
+      "select public.get_my_commonality_ranking() as response",
+    );
+    assertEquals(
+      (beforeThreshold.players as unknown[]).length,
+      0,
+      "two matches do not meet the ranking threshold",
+    );
+
+    await insertHistoryMatch(db, users.host, users.guest, "Guest newest", 1, 4);
+    await insertHistoryMatch(
+      db,
+      users.host,
+      users.outsider,
+      "Other recent 1",
+      4,
+      5,
+    );
+    await insertHistoryMatch(
+      db,
+      users.host,
+      users.outsider,
+      "Other recent 2",
+      5,
+      5,
+    );
+    await insertHistoryMatch(db, users.host, users.guest, "Expired", 100, 5);
+
+    const ranking = await rpc(
+      db,
+      users.host,
+      "select public.get_my_commonality_ranking() as response",
+    );
+    const rankedPlayers = ranking.players as JsonObject[];
+    assertEquals(
+      rankedPlayers.length,
+      1,
+      "only the three-match opponent ranks",
+    );
+    assertEquals(
+      rankedPlayers[0].opponent_nickname,
+      "Guest newest",
+      "ranking uses the latest opponent nickname",
+    );
+    assertEquals(rankedPlayers[0].match_count, 3, "ranking match count");
+    assertEquals(
+      rankedPlayers[0].common_answer_count,
+      9,
+      "ranking shared answers",
+    );
+    assertEquals(rankedPlayers[0].question_count, 15, "ranking answer total");
+    assertEquals(
+      Number(rankedPlayers[0].commonality_ratio),
+      0.6,
+      "ranking commonality ratio",
+    );
+
+    const firstPage = await rpc(
+      db,
+      users.host,
+      "select public.get_my_match_history($1::integer, $2::timestamptz, $3::uuid) as response",
+      [2, null, null],
+    );
+    const firstItems = firstPage.items as JsonObject[];
+    assertEquals(firstItems.length, 2, "first history page size");
+    assertEquals(
+      firstItems[0].opponent_nickname,
+      "Guest newest",
+      "history is newest first",
+    );
+
+    const secondPage = await rpc(
+      db,
+      users.host,
+      "select public.get_my_match_history($1::integer, $2::timestamptz, $3::uuid) as response",
+      [2, firstItems[1].completed_at, firstItems[1].id],
+    );
+    const secondItems = secondPage.items as JsonObject[];
+    assertEquals(secondItems.length, 2, "second history page size");
+    assert(
+      !firstItems.some((item) => item.id === secondItems[0].id),
+      "history cursor does not repeat the boundary row",
+    );
+
+    const allRecent = await rpc(
+      db,
+      users.host,
+      "select public.get_my_match_history($1::integer, $2::timestamptz, $3::uuid) as response",
+      [50, null, null],
+    );
+    const recentItems = allRecent.items as JsonObject[];
+    assertEquals(
+      recentItems.length,
+      5,
+      "history excludes records older than 90 days",
+    );
+    assert(
+      recentItems.every((item) => item.opponent_nickname !== "Expired"),
+      "expired history is not returned",
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+Deno.test("retention jobs purge expired data and keep unexpired records", async () => {
+  const db = await createDatabase();
+  try {
+    await insertUsers(db);
+    const oldHistoryId = await insertHistoryMatch(
+      db,
+      users.host,
+      users.guest,
+      "Old history",
+      91,
+      3,
+    );
+    const recentHistoryId = await insertHistoryMatch(
+      db,
+      users.host,
+      users.guest,
+      "Recent history",
+      2,
+      4,
+    );
+    const rawRoom = await db.query<{ id: string }>(
+      `
+      insert into public.game_rooms (
+        topic_key, status, created_by, closed_at, delete_after
+      ) values (
+        'travel', 'completed', $1, clock_timestamp(),
+        clock_timestamp() - interval '25 hours'
+      ) returning id
+    `,
+      [users.host],
+    );
+    const rawQueue = await db.query<{ id: string }>(
+      `
+      insert into public.matchmaking_queue (
+        user_id, topic_choice, nickname, status, room_id, delete_after
+      ) values (
+        $1, 'travel', 'Guest', 'cancelled', $2,
+        clock_timestamp() - interval '25 hours'
+      ) returning id
+    `,
+      [users.guest, rawRoom.rows[0].id],
+    );
+    const timedOutQueue = await db.query<{ id: string }>(
+      `
+      insert into public.matchmaking_queue (
+        user_id, topic_choice, nickname, status, expires_at, delete_after
+      ) values (
+        $1, 'daily', 'Blocked', 'waiting',
+        clock_timestamp() - interval '31 seconds',
+        clock_timestamp() - interval '25 hours'
+      ) returning id
+    `,
+      [users.blocked],
+    );
+    await db.query(`
+      insert into public.player_safety_reports (
+        room_id, category, details, created_at
+      ) values
+        (gen_random_uuid(), 'other', 'Expired report', clock_timestamp() - interval '181 days'),
+        (gen_random_uuid(), 'other', 'Recent report', clock_timestamp() - interval '1 day')
+    `);
+
+    await db.query("select private.purge_expired_game_data()");
+    const timedOut = await db.query<{ status: string; delete_after: Date }>(
+      "select status, delete_after from public.matchmaking_queue where id = $1",
+      [timedOutQueue.rows[0].id],
+    );
+    assertEquals(timedOut.rows[0].status, "timed_out", "expired ticket status");
+    const queueCount = await db.query<{ count: number }>(
+      "select count(*)::integer as count from public.matchmaking_queue where id = $1",
+      [rawQueue.rows[0].id],
+    );
+    assertEquals(queueCount.rows[0].count, 0, "raw queue data is purged");
+    const roomCount = await db.query<{ count: number }>(
+      "select count(*)::integer as count from public.game_rooms where id = $1",
+      [rawRoom.rows[0].id],
+    );
+    assertEquals(roomCount.rows[0].count, 0, "raw room data is purged");
+    const oldHistoryCount = await db.query<{ count: number }>(
+      "select count(*)::integer as count from public.player_match_history where id = $1",
+      [oldHistoryId],
+    );
+    const recentHistoryCount = await db.query<{ count: number }>(
+      "select count(*)::integer as count from public.player_match_history where id = $1",
+      [recentHistoryId],
+    );
+    assertEquals(oldHistoryCount.rows[0].count, 0, "90-day history is purged");
+    assertEquals(
+      recentHistoryCount.rows[0].count,
+      1,
+      "recent history is retained",
+    );
+
+    await db.query("select private.purge_expired_moderation_reports()");
+    const reports = await db.query<{ details: string }>(
+      "select details from public.player_safety_reports order by details",
+    );
+    assertEquals(reports.rows.length, 1, "expired moderation report is purged");
+    assertEquals(
+      reports.rows[0].details,
+      "Recent report",
+      "recent report is retained",
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+Deno.test("matchmaking and invite room rate limits enforce their thresholds", async () => {
+  const db = await createDatabase();
+  try {
+    await insertUsers(db);
+    for (let ticket = 0; ticket < 12; ticket += 1) {
+      await db.query(
+        `
+        insert into public.matchmaking_queue (
+          user_id, topic_choice, nickname, status
+        ) values ($1, 'travel', 'Host', 'cancelled')
+      `,
+        [users.host],
+      );
+    }
+    await assertRejects(
+      () =>
+        db.query(
+          `
+        insert into public.matchmaking_queue (
+          user_id, topic_choice, nickname, status
+        ) values ($1, 'travel', 'Host', 'cancelled')
+      `,
+          [users.host],
+        ),
+      "Matchmaking rate limit reached",
+    );
+
+    for (let room = 0; room < 6; room += 1) {
+      await db.query(
+        "insert into public.game_rooms (topic_key, status, created_by) values ('daily', 'waiting', $1)",
+        [users.guest],
+      );
+    }
+    await assertRejects(
+      () =>
+        db.query(
+          "insert into public.game_rooms (topic_key, status, created_by) values ('daily', 'waiting', $1)",
+          [users.guest],
+        ),
+      "Invite room rate limit reached",
     );
   } finally {
     await db.close();

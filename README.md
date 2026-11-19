@@ -12,7 +12,7 @@
 - 匯出 1080×1920 結果分享卡；可呼叫系統分享面板或下載 PNG。Instagram 交接仍需用實機確認。
 - 可在手機與桌面瀏覽器操作。
 
-目前工作區沒有 Supabase 專案 URL／公開 key，因此登入與真人服務入口停用，使用者只能玩本機示範。五份資料庫 migration 已在 PGlite 預檢環境套用，並有可重複執行的 migration 回歸測試驗證主要遊戲、安全 RPC、資料存取限制、檢舉期限及刪除帳號時的資料收尾；這不代表 Supabase 線上設定、Realtime、RLS、Edge Function 或跨裝置流程已驗證。
+目前工作區沒有 Supabase 專案 URL／公開 key，因此登入與真人服務入口停用，使用者只能玩本機示範。五份資料庫 migration 已在 PGlite 預檢環境套用，8 項可重複執行的 migration 回歸測試涵蓋雙人作答、隨機配對、歷史分頁與默契排名、資料保留期限、服務端限量、安全 RPC 及刪除帳號時的資料收尾；這不代表 Supabase 線上設定、Realtime、RLS、Edge Function 或跨裝置流程已驗證。
 
 ## Supabase Auth 設定
 
@@ -61,7 +61,7 @@ supabase secrets set ALLOWED_ORIGINS="https://<owner>.github.io,http://localhost
 deno test --allow-read --allow-net supabase/tests/migrations.test.ts
 ```
 
-測試涵蓋雙人作答揭曉與歷史摘要、檢舉去重與封鎖、刪除帳號時關閉房間及解除檢舉雙方的帳號連結。這些測試使用最小 Auth／角色 stub，不能取代 Supabase 專案中的 Auth、Realtime、pg_cron、RLS 和跨裝置驗證。
+8 項測試涵蓋雙人作答揭曉與歷史摘要、主題相容的隨機配對和封鎖／取消、歷史游標分頁與 90 天範圍、至少三局的共同點排名、24／90／180 天清理、配對及開房限量、檢舉去重與封鎖，以及刪除帳號時關閉房間並解除檢舉雙方的帳號連結。這些測試使用最小 Auth／角色 stub，不能取代 Supabase 專案中的 Auth、Realtime、pg_cron、RLS 和跨裝置驗證。
 
 ## 本機預覽
 

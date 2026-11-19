@@ -13,11 +13,11 @@
 - **階段：** 互動原型及第一輪瀏覽器版可用性檢查已完成；五份 Supabase migration 草稿、自助刪除帳號 Edge Function 和可重複執行的 PGlite migration 回歸測試已建立。前端已接上邀請房的真人答題、雙方完成才揭曉、雙方確認才前進、完局結果，以及隨機配對佇列、取消、30 秒逾時和重新排隊；Chrome mock 流程已驗證。另已加入玩家檢舉／封鎖、封鎖清單、隱私告知和受設定控制的刪除帳號入口；資料庫安全及刪除流程通過 PGlite 預檢。原型亦保留首頁、主題選擇、示範配對、五題作答和分享結果。
 - **已驗證：** Chrome headless 在 320、360、390、768、1024、1440px 檢查首頁、遊戲及結果頁，皆無水平溢出；以鍵盤在六種寬度完成五題流程。已改善選項字級、觸控尺寸、焦點提示及作答狀態語意。
 - **仍待線上驗證：** 工作區沒有 Supabase URL／公開 key，無法使用真實登入、房間或配對服務。邀請房答題與隨機配對前端已接上 RPC，並以 Chrome mock 驗證成功揭曉、雙方確認、結果讀取、配對成功、逾時重試及取消；尚未在 Supabase Realtime 或兩部裝置驗證。歷史頁查詢、分頁、默契排名及逐筆刪除 RPC 也已用 Chrome mock 驗證，但不能查詢真實對局。結果頁已能產生 1080×1920 PNG，支援系統分享面板及下載備援；尚未在 iOS／Android 實機確認 Instagram 交接。
-- **後端：** 五份 migration 已在本機 PGlite 預檢環境成功套用；可重複執行的四項回歸測試涵蓋 migration 權限、雙人揭曉／歷史、檢舉／封鎖，以及刪除帳號時關閉房間和清除檢舉帳號連結。自助刪除 Edge Function 已通過 Deno 型別、lint、格式檢查及 7 個本機 request 子測試。函式尚未部署，且尚未建立 Supabase 專案，線上 Auth、Realtime、清理排程和 Supabase 環境 RLS 仍未驗證。
+- **後端：** 五份 migration 已在本機 PGlite 預檢環境成功套用；8 項可重複執行的回歸測試涵蓋 migration 權限、雙人揭曉與歷史、隨機配對相容／封鎖／取消、歷史游標分頁與共同點排名門檻、24／90／180 天資料清理、配對／開房限量、檢舉／封鎖，以及刪除帳號時關閉房間和清除檢舉帳號連結。自助刪除 Edge Function 已通過 Deno 型別、lint、格式檢查及 7 個本機 request 子測試。函式尚未部署，且尚未建立 Supabase 專案，線上 Auth、Realtime、清理排程和 Supabase 環境 RLS 仍未驗證。
 - **資料政策：** 真人房間、配對票券及原始答案最多保留 24 小時；個人歷史摘要保存 90 天且可逐筆刪除；檢舉資料保存 180 天；封鎖關係保留至解除或刪除帳號。這些是目前採用的 MVP 預設，尚未部署或在 Supabase 驗證。
 - **登入與社群：** 已加入可選的 Supabase Auth 前端入口，包含匿名登入、Google／Facebook／X OAuth、Instagram／Threads custom provider 設定、PKCE session 恢復及匿名帳號 identity linking。Chrome mock client 已驗證登入狀態和 provider 呼叫；尚無 Supabase URL／anon key，登入按鈕目前停用，live login／callback／帳號 linking 仍未設定或驗證。平台限制見 [knowledge/decision.md](decision.md)。
 - **前端設計：** 已完成第一輪整體字級、留白、按鈕及主題選項版面整理；房間、真人答題、隨機配對等待及歷史頁已接上 RPC，無設定時仍保留清楚標示的操作預覽。Chrome mock 驗證流程分支；六種寬度與鍵盤流程的前一輪檢查已通過。真人服務環境的實際網路狀態仍待驗證。
-- **發布：** Pages workflow run 31 的 verify 和 deploy jobs 均成功；公開網站回應 HTTP 200 並顯示遊戲標題。真人登入和後端尚未設定，仍維持停用狀態。詳見 [run 31](https://github.com/310182-sketch/riddle-match/actions/runs/44609431760) 和 [公開網站](https://310182-sketch.github.io/riddle-match/)。
+- **發布：** Pages workflow run 32 的 verify 和 deploy jobs 均成功；公開網站回應 HTTP 200 並顯示遊戲標題。真人登入和後端尚未設定，仍維持停用狀態。詳見 [run 32](https://github.com/310182-sketch/riddle-match/actions/runs/44609803741) 和 [公開網站](https://310182-sketch.github.io/riddle-match/)。
 - **安全營運：** 前端及後端草稿已提供同房檢舉、封鎖與解除封鎖、服務端配對／開房限量及隱私告知。此原型沒有人工審查人員或支援聯絡方式；正式公開前須建立案件審查、聯絡和緊急處理流程，不能宣稱檢舉會即時有人處理。
 - **工作區：** 原型位於 `site/`，可直接開啟 `site/index.html` 操作，不需安裝套件或建置。
 - **產品方向：** 遠端 `main` 保留原有猜謎版本；本分支依本計畫製作二選一共同點遊戲，詳見 [knowledge/decision.md](decision.md)。
@@ -115,9 +115,9 @@
 - [x] 加入 JWT 驗證的 `delete-account` Edge Function，固定 Supabase JS `2.119.2` 版本並通過 Deno 型別、lint 與格式檢查；由後端 service role 刪除呼叫者本人，以精確 origin allow list 限制瀏覽器呼叫，service role key 不出現在前端。
 - [x] 以 Deno 和本機 mock Auth API 測試刪除函式 CORS、origin、HTTP method、缺少／無效 Bearer token，以及忽略用戶端指定 ID、只以已驗證 token 對應的使用者 ID 呼叫管理刪除；測試不連接正式 Supabase 或刪除真實帳號。
 - [x] 加入 Auth 使用者刪除前關閉進行中房間、清除房間代碼、取消等待票券和調整對局保留時間的 trigger；PGlite 驗證刪除時房間關閉、封鎖關係清除、檢舉資料保留而雙方帳號連結清除。
-- [x] 建立可重複執行的 Deno／PGlite migration 回歸測試，檢查 migration 套用、資料表權限、雙人揭曉與歷史、檢舉及封鎖、刪除帳號收尾。
+- [x] 建立 8 項可重複執行的 Deno／PGlite migration 回歸測試，檢查 migration 套用與資料表權限、雙人揭曉和歷史、隨機配對主題相容／封鎖排除／取消、歷史游標分頁和三局排名門檻、24／90／180 天資料清理、配對與開房限量、檢舉及封鎖、刪除帳號收尾。
 - [x] 以新增 migration 修正帳號刪除時檢舉只解除已刪除一方關聯的缺口；只要案件任一涉事玩家刪除帳號，就保留 180 天案件內容並同時清除兩方 ID。
-- [x] 將 Deno／PGlite migration 與 Edge Function 回歸測試接入 Pages workflow，驗證完成後才部署，並將 `pages: write`／`id-token: write` 權限限制在部署 job；run 31 已在 GitHub runner 完成驗證及部署。
+- [x] 將 Deno／PGlite migration 與 Edge Function 回歸測試接入 Pages workflow，驗證完成後才部署，並將 `pages: write`／`id-token: write` 權限限制在部署 job；run 32 已在 GitHub runner 完成驗證及部署。
 - [ ] 建立 Supabase 專案與開發／正式環境，啟用 Anonymous Auth，套用並實際驗證 migration。
 - [ ] 啟用 Supabase Manual Linking；設定本機與 GitHub Pages redirect allow list 及 Google／Facebook／X callback。
 - [ ] 完成 RLS、Realtime、RPC 權限和資料驗證；確保玩家只能查看有權存取的房間、答案與紀錄。
