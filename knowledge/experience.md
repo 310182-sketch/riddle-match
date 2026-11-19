@@ -185,4 +185,4 @@
 
 - **經驗：** 將 HTTP request handler 匯出，並只在 `import.meta.main` 時啟動 `Deno.serve`，可以直接對 handler 執行本機測試，而不需要啟動監聽服務或使用真實第三方憑證。測試環境變數應在動態匯入 handler 前設定，避免模組快取讀到錯誤設定。
 - **適用範圍：** Supabase Edge Functions、Deno serverless handlers，以及需要驗證 CORS、HTTP method 和未登入錯誤分支的無伺服器 API。
-- **本專案做法：** `delete-account/index.ts` 匯出 `handleRequest`，測試匯入時不啟動 server；Deno 測試用暫存假設定覆蓋允許／拒絕的 preflight、origin 拒絕、非 POST 和缺少 Bearer token 五個分支。這些測試不驗證 Supabase gateway JWT、Auth Admin 刪除、真實 CORS 部署或資料庫 trigger，仍需在 Supabase 環境驗證。
+- **本專案做法：** `delete-account/index.ts` 匯出 `handleRequest`，測試匯入時不啟動 Edge Function server；Deno 測試在 loopback 啟動 mock Auth API，使用暫存假設定覆蓋允許／拒絕的 preflight、origin 拒絕、非 POST、缺少／無效 Bearer token，以及成功時只刪除 token 對應的 ID 並使用後端管理 key。7 個子測試全通過。這不驗證 Supabase gateway JWT、正式 Auth Admin 權限、CORS 部署、Edge secrets 或資料庫 trigger，仍需在 Supabase 環境驗證。
