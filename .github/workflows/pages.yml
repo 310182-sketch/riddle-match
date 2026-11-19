@@ -25,13 +25,13 @@ jobs:
           deno-version: v2.9.8
 
       - name: Check Deno types
-        run: deno check supabase/tests/migrations.test.ts supabase/functions/delete-account/index.ts
+        run: deno check supabase/tests/migrations.test.ts supabase/tests/block_match_concurrency.test.ts supabase/functions/delete-account/index.ts
 
       - name: Lint Deno sources
-        run: deno lint supabase/tests/migrations.test.ts supabase/functions/delete-account/index.ts
+        run: deno lint supabase/tests/migrations.test.ts supabase/tests/block_match_concurrency.test.ts supabase/functions/delete-account/index.ts
 
       - name: Check Deno formatting
-        run: deno fmt --check supabase/tests/migrations.test.ts supabase/functions/delete-account/index.ts supabase/functions/delete-account/index.test.ts
+        run: deno fmt --check supabase/tests/migrations.test.ts supabase/tests/block_match_concurrency.test.ts supabase/functions/delete-account/index.ts supabase/functions/delete-account/index.test.ts
 
       - name: Test database migrations
         run: deno test --allow-read --allow-net supabase/tests/migrations.test.ts
@@ -42,8 +42,37 @@ jobs:
       - name: Check frontend JavaScript syntax
         run: node --check site/app.js
 
+  block_race:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: commonality
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d commonality"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/commonality
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.8
+
+      - name: Test block and matchmaking transaction race
+        run: deno test --allow-env --allow-net --allow-read supabase/tests/block_match_concurrency.test.ts
+
   deploy:
-    needs: verify
+    needs: [verify, block_race]
     permissions:
       contents: read
       pages: write
