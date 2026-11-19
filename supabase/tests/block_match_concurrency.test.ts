@@ -80,13 +80,49 @@ async function setAuthenticatedUser(client: PgClient, userId: string) {
   );
 }
 
-Deno.test("a concurrent matchmaking RPC waits for an in-flight block write", async () => {
+async function waitForAdvisoryLock(
+  admin: PgClient,
+  applicationName: string,
+  isRequestFinished: () => boolean,
+) {
+  let waitingForAdvisoryLock = false;
+  const deadline = Date.now() + 10000;
+  while (
+    !waitingForAdvisoryLock && !isRequestFinished() && Date.now() < deadline
+  ) {
+    const activity = await admin.query<{
+      wait_event_type: string | null;
+      wait_event: string | null;
+    }>(
+      `
+      select wait_event_type, wait_event
+      from pg_stat_activity
+      where application_name = $1
+        and state = 'active'
+    `,
+      [applicationName],
+    );
+    waitingForAdvisoryLock = activity.rows.some((row: {
+      wait_event_type: string | null;
+      wait_event: string | null;
+    }) => row.wait_event_type === "Lock" && row.wait_event === "advisory");
+    if (!waitingForAdvisoryLock && !isRequestFinished()) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+  assert(
+    waitingForAdvisoryLock,
+    `${applicationName} must wait on the block transaction's advisory lock`,
+  );
+}
+
+Deno.test("matchmaking and invite joins wait for an in-flight block write", async () => {
   const admin = await connect("block-race-admin");
   let blocker: PgClient | null = null;
   let matcher: PgClient | null = null;
   let blockerTransactionOpen = false;
   let matcherTransactionOpen = false;
-  let matchmakingPromise: ReturnType<PgClient["query"]> | null = null;
+  let requestPromise: ReturnType<PgClient["query"]> | null = null;
 
   try {
     await applyMigrations(admin);
@@ -133,43 +169,22 @@ Deno.test("a concurrent matchmaking RPC waits for an in-flight block write", asy
     await setAuthenticatedUser(matcher, users.guest);
     matcherTransactionOpen = true;
     let matchmakingFinished = false;
-    matchmakingPromise = matcher.query(
+    requestPromise = matcher.query(
       "select public.queue_for_match($1, $2) as response",
       ["travel", "Guest"],
     ).finally(() => {
       matchmakingFinished = true;
     });
 
-    let waitingForAdvisoryLock = false;
-    const deadline = Date.now() + 10000;
-    while (
-      !waitingForAdvisoryLock && !matchmakingFinished && Date.now() < deadline
-    ) {
-      const activity = await admin.query<{
-        wait_event_type: string | null;
-        wait_event: string | null;
-      }>(`
-        select wait_event_type, wait_event
-        from pg_stat_activity
-        where application_name = 'block-race-matcher'
-          and state = 'active'
-      `);
-      waitingForAdvisoryLock = activity.rows.some((row: {
-        wait_event_type: string | null;
-        wait_event: string | null;
-      }) => row.wait_event_type === "Lock" && row.wait_event === "advisory");
-      if (!waitingForAdvisoryLock && !matchmakingFinished) {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      }
-    }
-    assert(
-      waitingForAdvisoryLock,
-      "matchmaking RPC must wait on the block transaction's advisory lock",
+    await waitForAdvisoryLock(
+      admin,
+      "block-race-matcher",
+      () => matchmakingFinished,
     );
 
     await blocker.query("commit");
     blockerTransactionOpen = false;
-    const matchmakingResult = await matchmakingPromise;
+    const matchmakingResult = await requestPromise;
     await matcher.query("commit");
     matcherTransactionOpen = false;
     assertEquals(
@@ -177,12 +192,78 @@ Deno.test("a concurrent matchmaking RPC waits for an in-flight block write", asy
       "waiting",
       "a blocked player is not matched after the block commits",
     );
+
+    await blocker.end();
+    await matcher.end();
+    blocker = null;
+    matcher = null;
+    blocker = await connect("block-race-invite-blocker");
+    matcher = await connect("block-race-invite-matcher");
+    await admin.query("delete from public.player_blocks");
+
+    const inviteRoomResult = await admin.query<{ id: string }>(
+      `
+      insert into public.game_rooms (topic_key, status, created_by, invite_code)
+      values ('travel', 'waiting', $1, 'ABCDEF123456')
+      returning id
+    `,
+      [users.host],
+    );
+    const inviteRoomId = inviteRoomResult.rows[0].id;
+    await admin.query(
+      `insert into public.room_members (room_id, user_id, nickname)
+       values ($1, $2, 'Host')`,
+      [inviteRoomId, users.host],
+    );
+
+    await setAuthenticatedUser(blocker, users.guest);
+    blockerTransactionOpen = true;
+    const inviteBlockResult = await blocker.query<{
+      response: { status: string };
+    }>("select public.block_room_opponent($1::uuid) as response", [roomId]);
+    assertEquals(
+      inviteBlockResult.rows[0].response.status,
+      "blocked",
+      "invite block RPC",
+    );
+
+    await setAuthenticatedUser(matcher, users.guest);
+    matcherTransactionOpen = true;
+    let inviteJoinFinished = false;
+    requestPromise = matcher.query(
+      "select public.join_invite_room($1, $2) as response",
+      ["ABCDEF123456", "Guest"],
+    ).finally(() => {
+      inviteJoinFinished = true;
+    });
+
+    await waitForAdvisoryLock(
+      admin,
+      "block-race-invite-matcher",
+      () => inviteJoinFinished,
+    );
+    await blocker.query("commit");
+    blockerTransactionOpen = false;
+
+    let inviteJoinError: unknown = null;
+    try {
+      await requestPromise;
+    } catch (error) {
+      inviteJoinError = error;
+    }
+    await matcher.query("rollback");
+    matcherTransactionOpen = false;
+    assert(
+      inviteJoinError instanceof Error &&
+        inviteJoinError.message.includes("Room unavailable"),
+      "an invite join must be rejected after the block commits",
+    );
   } finally {
     if (blockerTransactionOpen && blocker) {
       await blocker.query("rollback").catch(() => undefined);
     }
-    if (matchmakingPromise) {
-      await matchmakingPromise.catch(() => undefined);
+    if (requestPromise) {
+      await requestPromise.catch(() => undefined);
     }
     if (matcherTransactionOpen && matcher) {
       await matcher.query("rollback").catch(() => undefined);
