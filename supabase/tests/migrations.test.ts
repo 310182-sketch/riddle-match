@@ -163,6 +163,8 @@ Deno.test("Supabase migrations apply in order and protect private tables", async
       report_read: boolean;
       history_read: boolean;
       history_rpc: string | null;
+      security_definer_count: number;
+      security_definer_without_fixed_search_path: number;
       delete_trigger: string | null;
     }>(`
       select
@@ -176,6 +178,21 @@ Deno.test("Supabase migrations apply in order and protect private tables", async
         has_table_privilege('authenticated', 'public.player_safety_reports', 'select') as report_read,
         has_table_privilege('authenticated', 'public.player_match_history', 'select') as history_read,
         to_regprocedure('public.get_my_match_history(integer,timestamp with time zone,uuid)')::text as history_rpc,
+        (
+          select count(*)::integer
+          from pg_proc p
+          join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname in ('public', 'private')
+            and p.prosecdef
+        ) as security_definer_count,
+        (
+          select count(*)::integer
+          from pg_proc p
+          join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname in ('public', 'private')
+            and p.prosecdef
+            and not ('search_path=""' = any(coalesce(p.proconfig, array[]::text[])))
+        ) as security_definer_without_fixed_search_path,
         (select tgname from pg_trigger where tgname = 'auth_users_close_rooms_before_delete') as delete_trigger
     `);
     const row = result.rows[0];
@@ -189,6 +206,15 @@ Deno.test("Supabase migrations apply in order and protect private tables", async
     assertEquals(row.report_read, false, "direct report table access");
     assertEquals(row.history_read, false, "direct history table access");
     assert(row.history_rpc, "history RPC is installed");
+    assert(
+      row.security_definer_count > 0,
+      "security-definer functions are installed",
+    );
+    assertEquals(
+      row.security_definer_without_fixed_search_path,
+      0,
+      "all application security-definer functions pin an empty search path",
+    );
     assertEquals(
       row.delete_trigger,
       "auth_users_close_rooms_before_delete",

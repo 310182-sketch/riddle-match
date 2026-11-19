@@ -22,7 +22,7 @@
 
 - **經驗：** Pages Actions 需要 pages: write 與 id-token: write 權限，repository 的 Pages source 也必須設為 GitHub Actions。
 - **適用範圍：** 使用 GitHub Actions 發布 GitHub Pages 網站。
-- **本專案做法：** workflow 已由功能分支觸發；`github-pages` environment 曾拒絕未列入允許清單的分支，加入精確分支政策後部署成功。現在 `verify` job 先執行 Deno 型別／lint／格式、PGlite migration 測試、Edge Function request 測試和前端語法檢查；`deploy` 以 `needs: verify` 等待檢查，並獨立取得 `pages: write` 與 `id-token: write`。部署失敗時先看實際失敗步驟與 annotation；runner 棄用警告和真正的部署錯誤要分開處理，也不能只憑 workflow 已觸發或排入佇列就宣稱網站已發布。最新功能提交的 run 33 兩個 job 均成功。
+- **本專案做法：** workflow 已由功能分支觸發；`github-pages` environment 曾拒絕未列入允許清單的分支，加入精確分支政策後部署成功。現在 `verify` job 先執行 Deno 型別／lint／格式、PGlite migration 測試、Edge Function request 測試和前端語法檢查；`deploy` 以 `needs: verify` 等待檢查，並獨立取得 `pages: write` 與 `id-token: write`。部署失敗時先看實際失敗步驟與 annotation；runner 棄用警告和真正的部署錯誤要分開處理，也不能只憑 workflow 已觸發或排入佇列就宣稱網站已發布。run 36 的 verify 和 deploy 均已成功。
 
 ## 靜態前端不可放伺服器祕密
 
@@ -82,7 +82,7 @@
 
 - **經驗：** GitHub Actions 可以因 push 正常觸發，仍在部署步驟開始前被環境保護規則拒絕。此時先讀取 Actions check-run annotations，確認分支是否列在部署環境的允許清單，再判斷是否要修改 workflow。
 - **適用範圍：** 透過 GitHub Pages environment 或其他有分支保護規則的 GitHub Actions 部署。
-- **本專案做法：** 初始部署因分支不在 `github-pages` environment 的允許清單而失敗。確認現有規則包含 `main` 且使用自訂分支清單後，只新增 `codex/commonality-quiz-prototype`，保留 `main` 和其他 environment 保護，再重跑 workflow；run 28 attempt 2 成功，並以公開網址 HTTP 200 和頁面標題確認部署內容。後續將 Deno／PGlite、Edge Function 和前端檢查放在不具 Pages 寫入權限的 `verify` job，`deploy` 只在其成功後取得部署權限；run 33 在 GitHub runner 上通過兩個 jobs。不要只根據 workflow 已觸發或排入佇列就將網站標成已發布。
+- **本專案做法：** 初始部署因分支不在 `github-pages` environment 的允許清單而失敗。確認現有規則包含 `main` 且使用自訂分支清單後，只新增 `codex/commonality-quiz-prototype`，保留 `main` 和其他 environment 保護，再重跑 workflow；run 28 attempt 2 成功，並以公開網址 HTTP 200 和頁面標題確認部署內容。後續將 Deno／PGlite、Edge Function 和前端檢查放在不具 Pages 寫入權限的 `verify` job，`deploy` 只在其成功後取得部署權限；run 36 在 GitHub runner 上通過兩個 jobs。不要只根據 workflow 已觸發或排入佇列就將網站標成已發布。
 
 ## 手機上的選項要留足點按空間，選取狀態不需雙重描邊
 
@@ -106,7 +106,13 @@
 
 - **經驗：** PGlite 可在瀏覽器執行 PostgreSQL，讓 migration 在建立雲端專案前先做套用和 RPC 回歸測試。把最小 `auth.users`、`auth.uid()`、角色及登入 claim stub 寫進版本控制，可讓後續 migration 修改重複檢查 PostgreSQL／PLpgSQL 語法、權限邊界及核心資料流程，不必依賴一次性的手動 smoke test。
 - **適用範圍：** 使用 PostgreSQL、RPC、觸發器和 RLS 的 Supabase 專案，且本機沒有 Docker、PostgreSQL 或 Supabase CLI 時。
-- **本專案做法：** `supabase/tests/migrations.test.ts` 以固定版本的 PGlite 依序套用五份 migration，並可用 `deno test --allow-read --allow-net supabase/tests/migrations.test.ts` 重複執行。9 項測試涵蓋 migration／權限、雙人答案揭曉與歷史、隨機配對主題相容／封鎖排除／取消、歷史游標分頁／90 天範圍／三局排名門檻、本人歷史讀取和刪除權限、24／90／180 天清理、配對與開房限量、檢舉和封鎖，以及帳號刪除時關閉房間、移除本人歷史、匿名化對手歷史並移除案件雙方帳號 ID。測試需以不同 JWT subject 呼叫 security-definer RPC，驗證讀取與刪除都只作用於該玩家資料，並確認未登入呼叫被拒絕；刪除帳號測試也應同時核對 cascade、匿名化和保留期限，避免只看 Auth row 是否消失。回歸測試曾找出並修正刪除帳號時仍保留另一方案件 ID 的資料清理缺口。此預檢不等同 Supabase 驗證：Auth claims、Realtime publication、pg_cron、Edge Function secret、CORS 及真實 RLS 執行環境仍須另測。
+- **本專案做法：** `supabase/tests/migrations.test.ts` 以固定版本的 PGlite 依序套用五份 migration，並可用 `deno test --allow-read --allow-net supabase/tests/migrations.test.ts` 重複執行。9 項測試涵蓋 migration／權限、security-definer 函式固定空 `search_path`、雙人答案揭曉與歷史、隨機配對主題相容／封鎖排除／取消、歷史游標分頁／90 天範圍／三局排名門檻、本人歷史讀取和刪除權限、24／90／180 天清理、配對與開房限量、檢舉和封鎖，以及帳號刪除時關閉房間、移除本人歷史、匿名化對手歷史並移除案件雙方帳號 ID。測試需以不同 JWT subject 呼叫 security-definer RPC，驗證讀取與刪除都只作用於該玩家資料，並確認未登入呼叫被拒絕；刪除帳號測試也應同時核對 cascade、匿名化和保留期限，避免只看 Auth row 是否消失。所有應用 security-definer 函式都固定空 `search_path`，回歸測試直接檢查 `pg_proc.proconfig`，避免日後新增函式遺漏此設定。回歸測試曾找出並修正刪除帳號時仍保留另一方案件 ID 的資料清理缺口。此預檢不等同 Supabase 驗證：Auth claims、Realtime publication、pg_cron、Edge Function secret、CORS 及真實 RLS 執行環境仍須另測。
+
+## SECURITY DEFINER 函式要固定空 search_path
+
+- **經驗：** PostgreSQL `SECURITY DEFINER` 函式以函式擁有者權限執行；若使用呼叫者可影響的 schema 搜尋路徑，可能解析到惡意同名物件。將 `search_path` 設為空並完整限定資料表、schema 函式名稱，可避免依賴可變的 schema 搜尋順序。
+- **適用範圍：** 使用 `SECURITY DEFINER` 的 PostgreSQL 函式、Supabase RPC、資料庫 trigger 或排程函式。
+- **本專案做法：** Migration 中的應用 `SECURITY DEFINER` 函式以 `SET search_path = ''` 執行，並以 `auth.uid()` 和 schema-qualified table/function references 存取物件。PGlite 測試讀取 `pg_proc.proconfig`，確認 `public`、`private` schema 下每個 security-definer 函式都固定此設定。此檢查不取代對函式本身授權、資料列權限和 trigger 行為的測試。
 
 ## 尚未連線的流程要讓示範狀態一眼可見
 
