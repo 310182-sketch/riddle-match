@@ -40,4 +40,4 @@
 
 - **經驗：** 在瀏覽器登入 GitHub 不會自動為 Git 命令列設定 push 權限；Windows 上可使用 Git Credential Manager 完成一次 OAuth 授權，避免把 Personal Access Token 貼進聊天或原始碼。
 - **適用範圍：** 使用 Git for Windows 從本機建立遠端 repository、push commit 或查詢 GitHub Actions 時。
-- **本專案做法：** Git Credential Manager 已安裝但目前未授權；完成帳號授權後再建立遠端 repository 並推送。
+- **本專案做法：** 透過 Git Credential Manager 授權 `310182-sketch`，設定本機 repository 使用 `manager` helper，再建立 `origin` 並推送。
