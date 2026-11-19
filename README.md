@@ -76,7 +76,7 @@ deno test --allow-env --allow-net --allow-read supabase/tests/block_match_concur
 
 ## GitHub Pages 部署
 
-Repository 的 `.github/workflows/pages.yml` 會將 `site/` 發布至 [GitHub Pages](https://310182-sketch.github.io/riddle-match/)。`github-pages` environment 保留分支保護，允許 `main` 和 `codex/commonality-quiz-prototype` 部署。每次部署前，workflow 會執行 Deno 型別／lint／格式檢查、PGlite migration 回歸測試、帳號刪除函式 request 測試、前端語法檢查、headless Chrome 配對取消競態測試，以及 PostgreSQL 16 多連線封鎖／配對／邀請加入／配額／取消競態測試；所有驗證 job 通過後才進入部署 job，Pages 寫入與 OIDC 權限僅授予部署 job。Chrome mock 測試會讓狀態 RPC 保持 pending，確認玩家點取消後請求不會被忽略，並驗證伺服器回報已配對但沒有房間 ID 時仍能重新查詢並進入房間。run 53 的 verify、`block_race` 和 deploy 全部成功；run 48 曾因 Pages artifact 無法讀取而失敗，之後已重新成功部署。此網站是原型，尚未設定 Supabase URL／key，真人登入及後端服務未啟用。
+Repository 的 `.github/workflows/pages.yml` 會將 `site/` 發布至 [GitHub Pages](https://310182-sketch.github.io/riddle-match/)。`github-pages` environment 保留分支保護，允許 `main` 和 `codex/commonality-quiz-prototype` 部署。每次部署前，workflow 會執行 Deno 型別／lint／格式檢查、PGlite migration 回歸測試、帳號刪除函式 request 測試、前端語法檢查、headless Chrome 配對取消競態測試，以及 PostgreSQL 16 多連線封鎖／配對／邀請加入／配額／取消競態測試；所有驗證 job 通過後才進入部署 job，Pages 寫入與 OIDC 權限僅授予部署 job。Chrome mock 測試會讓狀態 RPC 保持 pending，確認玩家點取消後請求不會被忽略，並驗證伺服器回報已配對但沒有房間 ID 時仍能重新查詢並進入房間。run 57 的 verify、`block_race` 和 deploy 全部成功。run 56 首次執行新 Chrome 測試時因頁面保留遊戲輪詢而逾時；測試改為在驗證路由後模擬登出並清理輪詢，run 57 已通過。run 48 曾因 Pages artifact 無法讀取而失敗，後續已成功部署。此網站是原型，尚未設定 Supabase URL／key，真人登入及後端服務未啟用。
 
 本機重跑前端取消競態測試需安裝 Chrome，執行 `node scripts/matchmaking-cancel-race.mjs`；若 Chrome 不在預設路徑，可設定 `CHROME_BIN` 指向瀏覽器執行檔。
 
