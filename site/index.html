@@ -4,120 +4,166 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f7f4ee">
-    <meta name="description" content="和陌生人配對，用提問和線索猜出謎底。">
-    <title>謎友 — 和陌生人玩一場猜謎</title>
+    <meta name="description" content="和陌生人玩二選一問答，在每個選擇裡找到共同點。">
+    <title>同頻｜二選一共同點遊戲</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=4">
+    <script src="app.js" defer></script>
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <a class="brand" href="#home" aria-label="謎友首頁" data-home>
-          <span class="brand-mark" aria-hidden="true">謎</span>
-          <span>謎友<span class="brand-dot">.</span></span>
+        <a class="brand" href="#home" data-home aria-label="同頻首頁">
+          <span class="brand-mark" aria-hidden="true">同</span>
+          <span>同頻<span class="brand-dot">.</span></span>
         </a>
-        <div class="topbar-right">
-          <span class="demo-pill"><span class="pulse-dot"></span>互動展示版</span>
+        <div class="topbar-actions">
+          <span class="demo-pill"><span class="pulse-dot" aria-hidden="true"></span>互動原型</span>
           <button class="icon-button" type="button" aria-label="遊戲說明" data-show-help>?</button>
         </div>
       </header>
 
       <main>
-        <section id="home" class="view home-view" aria-labelledby="home-title">
+        <section id="home" class="view home-view" data-view="home" aria-labelledby="home-title">
           <div class="hero-copy">
-            <div class="eyebrow"><span class="sparkle">✳</span> 一個主題，兩個陌生人</div>
-            <h1 id="home-title">用好奇心，<br><span>猜中彼此的謎。</span></h1>
-            <p class="hero-description">和一位新朋友配對。一人出題、一人猜，<br class="desktop-break">靠幾個問題，打開一段意想不到的對話。</p>
-            <button class="primary-button start-button" type="button" data-start>
-              <span>開始配對</span><span class="button-arrow" aria-hidden="true">↗</span>
-            </button>
-            <div class="quiet-note"><span aria-hidden="true">✦</span> 不用註冊，先玩一局看看</div>
+            <p class="eyebrow"><span class="sparkle" aria-hidden="true">✳</span> 二選一共同點遊戲</p>
+            <h1 id="home-title">從一個選擇，<br><span>發現一點相同。</span></h1>
+            <p class="hero-description">和一位陌生人配對，回答同一個主題的小問題。<br class="desktop-break">每題答完就揭曉，看看你們在哪些地方很有默契。</p>
+            <div class="hero-note"><span aria-hidden="true">✦</span> 不用註冊，先玩一局看看</div>
+
+            <form class="entry-card" data-start-form>
+              <div class="entry-heading">
+                <span class="step-mark">01</span>
+                <div><b>準備開始</b><small>選個主題，認識一位新朋友</small></div>
+              </div>
+              <label class="field-label" for="nickname">暱稱 <span>選填</span></label>
+              <input class="text-input" id="nickname" name="nickname" type="text" maxlength="12" autocomplete="nickname" placeholder="留空會使用「小星」">
+
+              <fieldset class="topic-picker">
+                <legend>這次想聊哪個主題？</legend>
+                <div class="topic-options">
+                  <button class="topic-choice" type="button" data-topic-choice="旅行" aria-pressed="false"><span aria-hidden="true">✈</span>旅行</button>
+                  <button class="topic-choice" type="button" data-topic-choice="音樂" aria-pressed="false"><span aria-hidden="true">♫</span>音樂</button>
+                  <button class="topic-choice" type="button" data-topic-choice="日常" aria-pressed="false"><span aria-hidden="true">☼</span>日常</button>
+                  <button class="topic-choice" type="button" data-topic-choice="飲食" aria-pressed="false"><span aria-hidden="true">✿</span>飲食</button>
+                  <button class="topic-choice random-choice is-selected" type="button" data-topic-choice="隨機" aria-pressed="true"><span aria-hidden="true">✳</span>隨機主題</button>
+                </div>
+              </fieldset>
+              <button class="primary-button start-button" type="submit"><span>開始配對</span><span class="button-arrow" aria-hidden="true">↗</span></button>
+              <p class="privacy-note">暱稱只在這次示範中顯示，不會送出或保存。</p>
+            </form>
           </div>
 
-          <div class="preview-card" aria-label="猜謎對話示意">
-            <div class="card-topline"><span class="live-label"><span class="pulse-dot"></span> 一場正在發生的猜謎</span><span class="round-tag">ROUND 01</span></div>
-            <div class="topic-chip"><span aria-hidden="true">☼</span> 今日主題 <b>日常小物</b></div>
-            <div class="riddle-bubble">
-              <div class="bubble-person"><span class="avatar avatar-orange">小</span><div><b>小島</b><span>出題者</span></div><span class="bubble-time">剛剛</span></div>
-              <p>我出門時常常帶著它，<br>下雨的時候就會派上用場。</p>
+          <div class="preview-wrap" aria-label="二選一遊戲示意">
+            <div class="preview-card">
+              <div class="preview-topline"><span class="live-label"><span class="pulse-dot" aria-hidden="true"></span>一題，認識一點彼此</span><span class="round-tag">01 / 05</span></div>
+              <div class="preview-topic"><span aria-hidden="true">✈</span><span>本局主題</span><b>旅行</b></div>
+              <p class="preview-question">旅行時，你更喜歡哪一種安排？</p>
+              <div class="preview-answer"><span class="answer-letter">A</span><span>先規劃好行程</span></div>
+              <div class="preview-answer is-selected"><span class="answer-letter">B</span><span>留點空白隨興走</span></div>
+              <div class="preview-reveal"><span aria-hidden="true">✦</span><b>你們都選了 B</b><small>答完後立即揭曉</small></div>
             </div>
-            <div class="question-bubble">
-              <div class="bubble-person"><span class="avatar avatar-blue">你</span><div><b>你</b><span>猜題者</span></div></div>
-              <p>它可以折起來收納嗎？</p>
-            </div>
-            <div class="answer-bubble"><span class="avatar avatar-orange small-avatar">小</span><span>可以喔，你快猜到了！</span><span class="tiny-sparkle">✦</span></div>
-            <div class="preview-input"><span>問一個問題，或直接猜答案…</span><span class="send-icon">↑</span></div>
-            <div class="card-caption"><span>對話只是開始</span><span class="caption-line"></span><span>好奇就能靠近</span></div>
-            <span class="deco-star star-one" aria-hidden="true">✳</span>
-            <span class="deco-star star-two" aria-hidden="true">✴</span>
+            <span class="decor-star star-one" aria-hidden="true">✳</span>
+            <span class="decor-star star-two" aria-hidden="true">✴</span>
+            <p class="preview-caption">不必一樣，找到共鳴就很好。</p>
           </div>
-          <div class="hero-index" aria-hidden="true">01 <span></span> 03</div>
         </section>
 
-        <section id="matching" class="view matching-view hidden" aria-live="polite">
-          <div class="match-orbit" aria-hidden="true"><span class="orbit orbit-one"></span><span class="orbit orbit-two"></span><span class="match-center">謎</span><span class="orbit-dot dot-a">✦</span><span class="orbit-dot dot-b">?</span></div>
-          <p class="eyebrow centered-eyebrow">正在幫你尋找謎友</p>
-          <h2>好問題，值得<br><span>和新朋友分享。</span></h2>
-          <p class="match-subtitle">準備一點好奇心就好</p>
-          <div class="match-progress"><span></span></div>
-          <p class="match-caption">正在抽取今天的主題…</p>
-          <button class="text-button" type="button" data-cancel>先等等，返回首頁</button>
+        <section id="matching" class="view matching-view hidden" data-view="matching" aria-live="polite">
+          <div class="match-orbit" aria-hidden="true"><span class="orbit orbit-one"></span><span class="orbit orbit-two"></span><span class="match-center">同</span><span class="orbit-dot dot-a">✦</span><span class="orbit-dot dot-b">?</span></div>
+          <p class="eyebrow centered-eyebrow"><span class="pulse-dot" aria-hidden="true"></span> 正在為你配對</p>
+          <h2>一個好問題，<br><span>從一位新朋友開始。</span></h2>
+          <p class="match-subtitle">本局主題：<b data-match-topic>旅行</b></p>
+          <div class="match-progress" aria-hidden="true"><span></span></div>
+          <p class="match-caption">正在尋找想玩同一主題的人…</p>
+          <p class="demo-inline-note">原型展示會使用示範玩家完成流程</p>
+          <button class="text-button" type="button" data-cancel>返回首頁</button>
         </section>
 
-        <section id="game" class="view game-view hidden" aria-labelledby="game-title">
+        <section id="game" class="view game-view hidden" data-view="game" aria-labelledby="game-title">
           <div class="game-heading">
-            <button class="back-button" type="button" data-home aria-label="返回首頁">← <span>離開這局</span></button>
-            <div class="round-center"><span class="round-tag">ROUND <b data-round>01</b></span><span class="round-divider"></span><span class="round-timer"><span class="timer-dot"></span><span data-timer>04:59</span></span></div>
-            <button class="more-button" type="button" data-show-help aria-label="遊戲說明">···</button>
+            <button class="back-button" type="button" data-home aria-label="離開這局並返回首頁">← <span>離開這局</span></button>
+            <div class="round-center">
+              <span class="round-tag">第 <b data-question-number>1</b> 題 <span>/</span> <b>5</b></span>
+              <span class="round-divider" aria-hidden="true"></span>
+              <span class="round-topic"><span aria-hidden="true">✳</span><b data-game-topic>旅行</b></span>
+            </div>
+            <button class="more-button" type="button" data-show-help aria-label="遊戲說明">?</button>
           </div>
 
+          <div class="game-progress" aria-label="作答進度"><span data-progress></span></div>
           <div class="game-grid">
-            <section class="play-panel" aria-label="猜謎遊戲">
-              <div class="topic-strip"><span class="topic-icon" aria-hidden="true">☼</span><div><small>本局主題</small><b data-topic>日常小物</b></div><span class="topic-step">主題 <b data-topic-number>1</b> / 12</span></div>
-              <div class="role-row"><div class="player-chip"><span class="avatar avatar-blue" data-you-avatar>你</span><span><b>你</b><small data-you-role>猜題者</small></span></div><span class="role-versus">VS</span><div class="player-chip opponent-chip"><span class="avatar avatar-orange" data-opponent-avatar>小</span><span><b data-opponent-name>小島</b><small data-opponent-role>出題者 · 示範</small></span></div></div>
-              <div class="riddle-area"><div class="riddle-label"><span class="label-sparkle">✦</span><span data-riddle-label>對方的謎題</span></div><p class="riddle-text" data-riddle>我出門時常常帶著它，下雨的時候就會派上用場。</p><p class="riddle-instruction" data-riddle-help>自由提問，找出答案；也可以直接猜。</p></div>
-              <div class="chat-stream" data-chat aria-live="polite" aria-label="遊戲對話"></div>
-              <div class="composer-area">
-                <form class="chat-composer" data-chat-form><label class="sr-only" for="chat-message">輸入問題或回答</label><input id="chat-message" name="message" type="text" maxlength="180" autocomplete="off" placeholder="問一個問題…" required><button class="send-button" type="submit" aria-label="送出訊息">↑</button></form>
-                <form class="guess-composer" data-guess-form><label class="sr-only" for="guess-answer">輸入你的答案</label><input id="guess-answer" name="answer" type="text" maxlength="100" autocomplete="off" placeholder="我猜答案是…" required><button class="guess-button" type="submit">猜答案 <span aria-hidden="true">↗</span></button></form>
-                <form class="setter-composer hidden" data-setter-form>
-                  <div class="setter-fields">
-                    <label class="sr-only" for="setter-riddle">輸入你出的謎題</label><input id="setter-riddle" name="riddle" type="text" maxlength="180" autocomplete="off" placeholder="寫一個符合主題的謎題…" required>
-                    <label class="sr-only" for="setter-answer">輸入正確答案</label><input id="setter-answer" name="answer" type="text" maxlength="80" autocomplete="off" placeholder="正確答案" required>
+            <section class="play-panel" aria-label="二選一問題">
+              <div class="player-row">
+                <div class="player-chip"><span class="avatar avatar-green" data-player-avatar>小</span><span><b data-player-name>小星</b><small>你</small></span></div>
+                <span class="versus">同一題</span>
+                <div class="player-chip opponent-chip"><span class="avatar avatar-orange">島</span><span><b>小島</b><small>示範玩家</small></span></div>
+              </div>
+              <div class="question-area">
+                <p class="question-kicker">兩個選項，選一個最像你的</p>
+                <h1 id="game-title" class="game-question" data-question tabindex="-1">旅行時，你更喜歡哪一種安排？</h1>
+                <p class="question-instruction">先選你的答案，等雙方都答完再揭曉。</p>
+                <div class="answer-options" role="group" aria-label="選擇你的答案">
+                  <button class="answer-option" type="button" data-option="0"><span class="option-letter">A</span><span class="option-copy" data-option-copy="0">先規劃好行程</span><span class="option-check" aria-hidden="true">✓</span></button>
+                  <button class="answer-option" type="button" data-option="1"><span class="option-letter">B</span><span class="option-copy" data-option-copy="1">留點空白隨興走</span><span class="option-check" aria-hidden="true">✓</span></button>
+                </div>
+                <section class="reveal-panel hidden" data-reveal aria-live="polite" aria-labelledby="reveal-heading">
+                  <div class="reveal-title"><span class="reveal-spark" aria-hidden="true">✦</span><div><b data-reveal-heading>你們找到共同點了</b><small data-reveal-copy>一樣的選擇，也許代表相似的喜好。</small></div></div>
+                  <div class="answer-comparison">
+                    <div><small data-player-answer-label>你</small><b data-player-answer></b></div>
+                    <span class="comparison-mark" aria-hidden="true">↔</span>
+                    <div><small>小島・示範</small><b data-peer-answer></b></div>
                   </div>
-                  <button class="guess-button" type="submit">送出謎題 <span aria-hidden="true">↗</span></button>
-                </form>
-                <button class="hint-button" type="button" data-hint><span aria-hidden="true">✧</span> 給我一點提示</button>
+                  <button class="primary-button next-button" type="button" data-next><span data-next-label>下一題</span><span class="button-arrow" aria-hidden="true">↗</span></button>
+                </section>
               </div>
             </section>
 
             <aside class="side-panel">
-              <div class="side-title"><span class="side-icon">✳</span><div><b>這局怎麼玩</b><small>好奇心是你的超能力</small></div></div>
-              <ol class="how-to-list"><li class="active-step"><span>01</span><div><b>讀讀謎題</b><small>主題是這局的線索方向</small></div></li><li><span>02</span><div><b>自由提問</b><small>在聊天室問出你的想法</small></div></li><li><span>03</span><div><b>提交答案</b><small>猜中就能交換角色</small></div></li></ol>
-              <div class="side-divider"></div>
-              <div class="side-note"><span class="note-icon">♡</span><p>保持友善，讓每個問題都成為一段好對話。</p></div>
-              <button class="report-button" type="button" data-report>回報不適內容 <span aria-hidden="true">↗</span></button>
+              <div class="side-title"><span class="side-icon" aria-hidden="true">✳</span><div><b>本局小記</b><small>每題各自選擇，再一起揭曉</small></div></div>
+              <div class="score-card"><span>目前相同</span><b><span data-match-count>0</span><small> / <span data-answered-count>0</span> 題</small></b></div>
+              <div class="how-to">
+                <p class="how-to-title">怎麼玩</p>
+                <ol><li class="active-step"><span>01</span><b>選一個最像你的答案</b></li><li><span>02</span><b>等對方也完成作答</b></li><li><span>03</span><b>看看你們是否有共鳴</b></li></ol>
+              </div>
+              <p class="safety-note"><span aria-hidden="true">♡</span> 不需要分享個人聯絡方式，也能找到共同點。</p>
+              <p class="demo-disclaimer"><span class="pulse-dot" aria-hidden="true"></span> 示範玩家與答案由本機範例資料模擬，尚未連接真人配對。</p>
             </aside>
           </div>
-          <p class="demo-disclaimer"><span class="pulse-dot"></span> 展示模式：目前對手由示範流程模擬，尚未接上真人即時配對。</p>
+        </section>
+
+        <section id="results" class="view results-view hidden" data-view="results" aria-labelledby="result-title">
+          <div class="result-mark" aria-hidden="true">✦</div>
+          <p class="eyebrow centered-eyebrow">這一局的小發現</p>
+          <h1 id="result-title">你們有 <span data-result-score>0</span> 題選得一樣。</h1>
+          <p class="result-copy" data-result-copy>每個相同的選擇，都是認識彼此的一個小線索。</p>
+          <div class="result-card">
+            <div class="result-card-heading"><b>你們的共同選擇</b><span data-result-topic>旅行</span></div>
+            <ul class="result-list" data-result-list></ul>
+            <p class="empty-result hidden" data-empty-result>答案不一樣也很好，這就是認識新觀點的開始。</p>
+          </div>
+          <div class="result-actions">
+            <button class="primary-button" type="button" data-play-again><span>再玩一局</span><span class="button-arrow" aria-hidden="true">↗</span></button>
+            <button class="secondary-button" type="button" data-home>回到首頁</button>
+          </div>
+          <p class="demo-inline-note">本次配對與答案為原型示範，不會保存遊戲紀錄。</p>
         </section>
       </main>
 
-      <footer class="site-footer"><span>謎友 © 2026</span><span class="footer-message">多一個問題，多認識一個世界 <span>✦</span></span><button type="button" data-show-help>遊戲說明</button></footer>
+      <footer class="site-footer"><span>同頻 © 2026</span><span class="footer-message">一個選擇，發現一點相同 <span aria-hidden="true">✦</span></span><button type="button" data-show-help>遊戲說明</button></footer>
     </div>
 
     <dialog class="modal" data-modal aria-labelledby="modal-title">
       <button class="modal-close" type="button" data-close-modal aria-label="關閉">×</button>
-      <span class="modal-mark">謎</span>
+      <span class="modal-mark" aria-hidden="true">同</span>
       <p class="eyebrow centered-eyebrow">HOW TO PLAY</p>
-      <h2 id="modal-title" data-modal-title>讓一場猜謎開始</h2>
-      <p class="modal-copy" data-modal-copy>網站給一個主題，一人出題、一人猜。猜題者可以自由提問，出題者在聊天室回答；猜中後交換角色，再玩一輪。</p>
-      <button class="primary-button modal-action" type="button" data-close-modal>知道了 <span class="button-arrow">↗</span></button>
+      <h2 id="modal-title">用兩個選項，找到一點共鳴</h2>
+      <p class="modal-copy">選擇主題後，和一位陌生人玩五題二選一。雙方完成每題後就會揭曉答案，最後看看你們有幾個相同選擇。現在的配對與對方答案由示範資料模擬，沒有連接真人或儲存個人資料。</p>
+      <button class="primary-button modal-action" type="button" data-close-modal>知道了</button>
     </dialog>
     <div class="toast" data-toast role="status" aria-live="polite"></div>
-    <script src="app.js"></script>
   </body>
 </html>

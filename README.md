@@ -1,25 +1,33 @@
-# 謎友｜陌生人猜謎配對
+# 同頻｜二選一共同點遊戲
 
-一個以主題引導的陌生人猜謎網站雛形。玩家配對後輪流出題和猜題，猜題者可以在聊天室自由提問。
+和陌生人玩同一主題的二選一問答。雙方各自回答每一題，作答完成後立即揭曉答案，看看彼此有哪些共同點。
 
-## 目前版本
+## 原型目前包含
 
-這是可部署到 GitHub Pages 的前端展示原型，包含角色抽選、主題、自由提問、提示、答案提交、五分鐘倒數和換角流程。配對對象、對話和答案判定由瀏覽器內的示範流程模擬；不同訪客目前不會進入同一個遊戲房間。
+- 選擇旅行、音樂、日常或飲食主題，也可以隨機選題。
+- 使用一次性的暱稱進入示範配對，不需要註冊。
+- 完成五題二選一，逐題揭曉雙方答案並查看共同選擇。
+- 可在手機與桌面瀏覽器操作。
 
-產品規劃與實作經驗記錄在 `knowledge/plan.md`、`knowledge/experience.md` 和 `knowledge/decision.md`，會和網站原始碼一起納入 GitHub repository。
+這是純前端互動原型。配對對象和對方答案由瀏覽器內的範例資料模擬；沒有真人配對、帳號服務、聊天室或遊戲紀錄，也不會保存暱稱。畫面會持續標示示範模式。
 
 ## 本機預覽
 
-直接用瀏覽器開啟 `site/index.html` 即可預覽，不需要安裝套件或建置工具。
+直接用瀏覽器開啟 site/index.html 即可預覽，不需要安裝套件或建置工具。
 
 ## GitHub Pages 部署
 
-Repository 包含 `.github/workflows/pages.yml`。將預設分支推送到 GitHub 後，workflow 會把 `site/` 發布到 GitHub Pages。
+Repository 的 .github/workflows/pages.yml 會將 site/ 發布至 GitHub Pages。推送 main 或 master 分支時，workflow 會自動執行；其他分支可手動觸發。第一次部署前，請在 repository 的 **Settings → Pages → Build and deployment → Source** 選擇 **GitHub Actions**。
 
-第一次部署前，請在 repository 的 **Settings → Pages → Build and deployment → Source** 選擇 **GitHub Actions**。部署完成後，可在同一頁查看網站網址。
+## 文件
 
-## 後續工作
+- knowledge/plan.md：產品願景、現況與路線圖。
+- knowledge/experience.md：適用範圍明確的實作經驗。
+- knowledge/decision.md：目前原型採用的預設和待確認事項。
 
-- 接上即時配對、多人聊天室和遊戲房間狀態服務。
-- 加入玩家離開、重新配對、逾時及安全機制。
-- 確認出題者的自由回答方式和猜中後的換題規則。
+## 下一步
+
+- 測試不同裝置上的流程與無障礙操作。
+- 決定正式版的配對等待、同步作答、離線處理與紀錄保存方式。
+- 規劃即時配對服務、資料保護和玩家安全機制。
+- 真人配對上線前，把示範玩家和答案改為伺服器管理的遊戲狀態。

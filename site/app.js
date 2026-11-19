@@ -1,283 +1,225 @@
 (() => {
-  const views = {
-    home: document.querySelector("#home"),
-    matching: document.querySelector("#matching"),
-    game: document.querySelector("#game"),
+  "use strict";
+
+  const questionBank = {
+    旅行: [
+      { prompt: "旅行時，你更喜歡哪一種安排？", choices: ["先規劃好行程", "留點空白隨興走"], demoAnswer: 1 },
+      { prompt: "到了陌生城市，你最想先做什麼？", choices: ["找在地小吃", "四處散步看看"], demoAnswer: 0 },
+      { prompt: "你比較想把旅行記憶留在哪裡？", choices: ["拍很多照片", "好好感受當下"], demoAnswer: 1 },
+      { prompt: "旅途中多出半天空檔，你會？", choices: ["探索沒去過的地方", "找間咖啡店休息"], demoAnswer: 0 },
+      { prompt: "你偏好的旅行夥伴是？", choices: ["一起安排、互相提醒", "走到哪裡算哪裡"], demoAnswer: 1 }
+    ],
+    音樂: [
+      { prompt: "聽一首新歌時，你通常先注意？", choices: ["歌詞寫了什麼", "旋律聽起來如何"], demoAnswer: 1 },
+      { prompt: "你最常在什麼時候聽音樂？", choices: ["通勤或移動時", "專心休息的時候"], demoAnswer: 0 },
+      { prompt: "遇到喜歡的歌，你比較會？", choices: ["立刻分享給朋友", "先收藏起來自己聽"], demoAnswer: 1 },
+      { prompt: "如果去聽現場演出，你會？", choices: ["跟著唱、享受熱鬧", "安靜感受每一首歌"], demoAnswer: 0 },
+      { prompt: "你的歌單通常比較像？", choices: ["熟悉的歌反覆播放", "常常加入新發現"], demoAnswer: 1 }
+    ],
+    日常: [
+      { prompt: "放假早上，你比較想？", choices: ["早點起床開始一天", "睡到自然醒再說"], demoAnswer: 1 },
+      { prompt: "做事時，你偏好哪一種節奏？", choices: ["先排好順序再開始", "想到什麼就先做什麼"], demoAnswer: 0 },
+      { prompt: "一天結束後，哪種方式最能放鬆？", choices: ["自己安靜待一會兒", "找人聊聊今天的事"], demoAnswer: 0 },
+      { prompt: "你比較常用哪種方式記住事情？", choices: ["寫在行事曆或清單上", "相信自己會記得"], demoAnswer: 1 },
+      { prompt: "突然有一小時空檔，你會？", choices: ["完成一件待辦事項", "讓自己放空一下"], demoAnswer: 1 }
+    ],
+    飲食: [
+      { prompt: "點餐時，你通常會選？", choices: ["最熟悉、吃不膩的", "試試沒吃過的新口味"], demoAnswer: 1 },
+      { prompt: "你喜歡哪一種早餐？", choices: ["慢慢吃一頓完整早餐", "簡單方便就可以"], demoAnswer: 0 },
+      { prompt: "和朋友聚餐時，你比較在意？", choices: ["大家能一起分享食物", "每個人都吃到喜歡的"], demoAnswer: 0 },
+      { prompt: "甜點擺在面前，你會？", choices: ["先拍照再開始吃", "趁熱趁新鮮馬上吃"], demoAnswer: 1 },
+      { prompt: "喝飲料時，你偏好？", choices: ["固定點最愛的那款", "偶爾換個新口味"], demoAnswer: 1 }
+    ]
   };
-  const modal = document.querySelector("[data-modal]");
-  const chat = document.querySelector("[data-chat]");
-  const toast = document.querySelector("[data-toast]");
-  const chatForm = document.querySelector("[data-chat-form]");
-  const guessForm = document.querySelector("[data-guess-form]");
-  const setterForm = document.querySelector("[data-setter-form]");
-  let timerId;
-  let toastId;
-  let round = 1;
-  let topicNumber = 1;
-  let role = "guesser";
-  let hintUsed = false;
-  let solved = false;
-  let secondsLeft = 299;
-  let pendingMatch;
-  const initialTopic = { topic: "日常小物", answer: "雨傘", riddle: "我出門時常常帶著它，下雨的時候就會派上用場。", hint: "下雨天常常會帶著它出門。" };
-  const topics = [
-    { topic: "城市角落", answer: "公車站", riddle: "人們在這裡短暫相遇，等一個會載著大家往前走的東西。", hint: "常常可以在路邊看到它。" },
-    { topic: "餐桌風景", answer: "筷子", riddle: "我成雙出現，陪人們把一頓飯好好吃完。", hint: "吃中式料理時很常用到。" },
-    { topic: "午後時光", answer: "咖啡", riddle: "有人喜歡我苦一點，有人加奶加糖；一個小杯子就能讓午後醒過來。", hint: "很多人早上也會喝它。" },
-    { topic: "自然觀察", answer: "彩虹", riddle: "雨停以後，我偶爾掛在天邊，穿著好幾種顏色。", hint: "要有陽光和水氣才容易看見。" },
-    { topic: "居家日常", answer: "冰箱", riddle: "我住在廚房，肚子裡裝著各種食物，總是比房間涼快。", hint: "打開門會看到飲料和食材。" },
-    { topic: "旅行途中", answer: "行李箱", riddle: "每次出遠門，我就跟著你一起裝下幾天的生活。", hint: "通常有輪子，可以拖著走。" },
-    { topic: "天氣心情", answer: "風箏", riddle: "我在地上有人牽著，到了有風的日子就能飛上天空。", hint: "它有一條長長的線。" },
-    { topic: "書桌一角", answer: "橡皮擦", riddle: "鉛筆寫錯的時候，我可以把痕跡慢慢帶走。", hint: "上學時常常會放在鉛筆盒裡。" },
-    { topic: "夜晚抬頭", answer: "月亮", riddle: "白天不一定看得見，晚上常在天空陪著星星。", hint: "農曆十五前後看起來比較圓。" },
-    { topic: "小小植物", answer: "仙人掌", riddle: "我長在乾燥的地方，身上有刺，卻不用常常喝水。", hint: "它是一種很耐旱的植物。" },
-    { topic: "聲音記憶", answer: "鬧鐘", riddle: "每天早上，我用聲音提醒你：新的一天開始了。", hint: "很多人會把它放在床邊。" },
-  ];
-  let current = initialTopic;
+
+  const state = {
+    topicChoice: "隨機",
+    topic: "旅行",
+    nickname: "小星",
+    questionIndex: 0,
+    answers: [],
+    matchTimer: null
+  };
+
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const views = $$("[data-view]");
+  const modal = $("[data-modal]");
+  const toast = $("[data-toast]");
 
   function showView(name) {
-    Object.entries(views).forEach(([key, element]) => element.classList.toggle("hidden", key !== name));
+    views.forEach((view) => {
+      const visible = view.dataset.view === name;
+      view.classList.toggle("hidden", !visible);
+      view.setAttribute("aria-hidden", String(!visible));
+    });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function flash(message) {
+  function chooseTopic() {
+    const topics = Object.keys(questionBank);
+    if (state.topicChoice === "隨機") {
+      state.topic = topics[Math.floor(Math.random() * topics.length)];
+    } else {
+      state.topic = state.topicChoice;
+    }
+    return state.topic;
+  }
+
+  function startMatching() {
+    window.clearTimeout(state.matchTimer);
+    state.questionIndex = 0;
+    state.answers = [];
+    state.nickname = ($("#nickname").value.trim() || "小星").slice(0, 12);
+    chooseTopic();
+    $("[data-match-topic]").textContent = state.topic;
+    showView("matching");
+    state.matchTimer = window.setTimeout(() => {
+      renderQuestion();
+      showView("game");
+    }, 900);
+  }
+
+  function updateProgress() {
+    const questionNumber = state.questionIndex + 1;
+    $("[data-question-number]").textContent = String(questionNumber);
+    $("[data-game-topic]").textContent = state.topic;
+    $("[data-player-name]").textContent = state.nickname;
+    $("[data-player-avatar]").textContent = state.nickname.slice(0, 1);
+    $("[data-progress]").style.width = String((questionNumber / questionBank[state.topic].length) * 100) + "%";
+
+    const answered = state.answers.length;
+    const matches = state.answers.filter((answer) => answer.player === answer.opponent).length;
+    $("[data-answered-count]").textContent = String(answered);
+    $("[data-match-count]").textContent = String(matches);
+  }
+
+  function renderQuestion() {
+    const question = questionBank[state.topic][state.questionIndex];
+    $("[data-question]").textContent = question.prompt;
+    $$(".answer-option").forEach((button, index) => {
+      button.disabled = false;
+      button.classList.remove("is-selected");
+      $(".option-copy", button).textContent = question.choices[index];
+    });
+    $("[data-reveal]").classList.add("hidden");
+    updateProgress();
+  }
+
+  function revealAnswer(selectedIndex) {
+    const question = questionBank[state.topic][state.questionIndex];
+    const answer = { player: selectedIndex, opponent: question.demoAnswer };
+    state.answers[state.questionIndex] = answer;
+    const matched = answer.player === answer.opponent;
+
+    $$(".answer-option").forEach((button, index) => {
+      button.disabled = true;
+      button.classList.toggle("is-selected", index === selectedIndex);
+    });
+
+    $("[data-reveal-heading]").textContent = matched ? "你們找到一個共同點了" : "選擇不一樣，也多認識一點彼此";
+    $("[data-reveal-copy]").textContent = matched
+      ? "你們都選了「" + question.choices[selectedIndex] + "」。"
+      : "每個人的偏好都不同，這也是認識新觀點的開始。";
+    $("[data-player-answer]").textContent = question.choices[selectedIndex];
+    $("[data-peer-answer]").textContent = question.choices[question.demoAnswer];
+    $("[data-reveal]").classList.remove("hidden");
+    $("[data-next-label]").textContent = state.questionIndex === questionBank[state.topic].length - 1 ? "看這局結果" : "下一題";
+    updateProgress();
+    $("[data-next]").focus({ preventScroll: true });
+  }
+
+  function renderResults() {
+    const questions = questionBank[state.topic];
+    const matchedIndexes = state.answers.reduce((indexes, answer, index) => {
+      if (answer && answer.player === answer.opponent) indexes.push(index);
+      return indexes;
+    }, []);
+    $("[data-result-score]").textContent = String(matchedIndexes.length);
+    $("[data-result-topic]").textContent = state.topic;
+    $("[data-result-copy]").textContent = matchedIndexes.length
+      ? "這些相同的選擇，是認識彼此的一個小線索。"
+      : "答案不一樣也很好，這是認識新觀點的開始。";
+
+    const list = $("[data-result-list]");
+    list.replaceChildren();
+    matchedIndexes.forEach((index) => {
+      const question = questions[index];
+      const item = document.createElement("li");
+      const prompt = document.createElement("span");
+      const choice = document.createElement("b");
+      prompt.textContent = question.prompt;
+      choice.textContent = question.choices[state.answers[index].player];
+      item.append(prompt, choice);
+      list.append(item);
+    });
+    $("[data-empty-result]").classList.toggle("hidden", matchedIndexes.length > 0);
+    list.classList.toggle("hidden", matchedIndexes.length === 0);
+    showView("results");
+  }
+
+  function announce(message) {
     toast.textContent = message;
     toast.classList.add("visible");
-    clearTimeout(toastId);
-    toastId = setTimeout(() => toast.classList.remove("visible"), 2500);
+    window.clearTimeout(announce.timer);
+    announce.timer = window.setTimeout(() => toast.classList.remove("visible"), 2400);
   }
 
-  function start() {
-    clearTimeout(pendingMatch);
-    clearInterval(timerId);
-    role = Math.random() < 0.5 ? "guesser" : "setter";
-    round = 1;
-    topicNumber = 1;
-    showView("matching");
-    pendingMatch = setTimeout(() => beginRound(), 1450);
-  }
-
-  function beginRound() {
-    const template = round === 1 && role === "guesser" ? initialTopic : topics[(topicNumber - 1) % topics.length];
-    current = { ...template };
-    if (role === "setter") current.answer = "";
-    hintUsed = false;
-    solved = false;
-    secondsLeft = 299;
-    document.querySelector("[data-next-round]")?.remove();
-    setterForm.elements.riddle.value = "";
-    setterForm.elements.answer.value = "";
-    chatForm.elements.message.disabled = false;
-    chatForm.querySelector("button").disabled = false;
-    guessForm.elements.answer.disabled = false;
-    guessForm.querySelector("button").disabled = false;
-    setterForm.querySelectorAll("input, button").forEach((element) => { element.disabled = false; });
-    document.querySelector("[data-hint]").disabled = false;
-    document.querySelector("[data-round]").textContent = String(round).padStart(2, "0");
-    document.querySelector("[data-topic]").textContent = current.topic;
-    document.querySelector("[data-topic-number]").textContent = String(topicNumber);
-    document.querySelector("[data-you-role]").textContent = role === "guesser" ? "猜題者" : "出題者";
-    document.querySelector("[data-opponent-role]").textContent = `${role === "guesser" ? "出題者" : "猜題者"} · 示範`;
-    document.querySelector("[data-riddle-label]").textContent = role === "guesser" ? "對方的謎題" : "你要出的謎題";
-    document.querySelector("[data-riddle]").textContent = role === "guesser" ? current.riddle : "先想一個符合主題的謎題，再傳給對方開始猜。";
-    document.querySelector("[data-riddle-help]").textContent = role === "guesser" ? "自由提問，找出答案；也可以直接猜。" : "謎題不要直接說出答案，讓對方有線索可以推理。";
-    document.querySelector("[data-hint]").classList.toggle("hidden", role !== "guesser");
-    guessForm.classList.toggle("hidden", role !== "guesser");
-    setterForm.classList.toggle("hidden", role !== "setter");
-    chatForm.classList.toggle("hidden", role === "setter");
-    chat.replaceChildren();
-    showView("game");
-    if (role === "guesser") {
-      addSystem("你已配對成功！這是一位示範玩家。自由提問或直接猜答案吧。");
-      addMessage("opponent", "小島", "小", "avatar-orange", "準備好了，來猜猜看吧！");
-    } else {
-      addSystem("角色交換成功！請出一道符合主題的謎題，讓對方來猜。");
-      addMessage("opponent", "小島", "小", "avatar-orange", "我準備好要猜了，出題給我吧！");
-    }
-    startTimer();
-  }
-
-  function addSystem(text) {
-    const item = document.createElement("div");
-    item.className = "message-system";
-    item.textContent = text;
-    chat.append(item);
-    chat.scrollTop = chat.scrollHeight;
-  }
-
-  function addMessage(who, name, initial, avatarClass, text) {
-    const row = document.createElement("div");
-    row.className = `chat-message ${who === "you" ? "mine" : "theirs"}`;
-    const avatar = document.createElement("span");
-    avatar.className = `avatar ${avatarClass}`;
-    avatar.textContent = initial;
-    const content = document.createElement("div");
-    content.className = "message-content";
-    const label = document.createElement("span");
-    label.className = "message-name";
-    label.textContent = who === "you" ? "你" : name;
-    const bubble = document.createElement("span");
-    bubble.className = "message-text";
-    bubble.textContent = text;
-    content.append(label, bubble);
-    row.append(avatar, content);
-    chat.append(row);
-    chat.scrollTop = chat.scrollHeight;
-  }
-
-  function startTimer() {
-    const output = document.querySelector("[data-timer]");
-    clearInterval(timerId);
-    timerId = setInterval(() => {
-      secondsLeft -= 1;
-      output.textContent = `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`;
-      if (secondsLeft <= 0) {
-        clearInterval(timerId);
-        finishByTimeout();
-      }
-    }, 1000);
-  }
-
-  function finishByTimeout() {
-    const reveal = role === "guesser"
-      ? `時間到囉！這題的答案是「${current.answer}」。下一輪交換角色。`
-      : current.answer
-        ? `時間到囉！示範玩家還沒猜中，這題的答案是「${current.answer}」。下一輪交換角色。`
-        : "時間到囉！本輪還沒完成出題，下一輪直接交換角色。";
-    addMessage("opponent", "小島", "小", "avatar-orange", reveal);
-    addSystem("本輪結束，按下方按鈕交換角色並開始新主題。");
-    showNextRound();
-  }
-
-  function normalize(text) {
-    return text.toLocaleLowerCase().replace(/[\s，。！？、,.!?]/g, "");
-  }
-
-  const acceptedAnswers = {
-    "雨傘": ["雨傘", "傘", "洋傘", "陽傘"],
-    "公車站": ["公車站", "公車站牌", "站牌", "巴士站"],
-    "筷子": ["筷子"], "咖啡": ["咖啡"], "彩虹": ["彩虹"],
-    "冰箱": ["冰箱", "電冰箱", "雪櫃"], "行李箱": ["行李箱", "旅行箱"],
-    "風箏": ["風箏"], "橡皮擦": ["橡皮擦", "橡皮"], "月亮": ["月亮", "月球"],
-    "仙人掌": ["仙人掌"], "鬧鐘": ["鬧鐘", "時鐘"],
-  };
-
-  function submitGuess(raw) {
-    const value = raw.trim();
-    if (!value || solved) return;
-    addMessage("you", "你", "你", "avatar-blue", `我猜是「${value}」！`);
-    const choices = acceptedAnswers[current.answer] || [current.answer];
-    const correct = choices.some((answer) => normalize(answer) === normalize(value));
-    setTimeout(() => {
-      if (correct) {
-        solved = true;
-        clearInterval(timerId);
-        addMessage("opponent", "小島", "小", "avatar-orange", `答對了！答案就是${current.answer}，太厲害了！`);
-        addSystem("猜謎成功！交換角色，再開始新一輪吧。題目結果只在這台瀏覽器模擬。");
-        showNextRound();
-      } else {
-        addMessage("opponent", "小島", "小", "avatar-orange", "還差一點點！可以再問我一個問題，或再猜一次。" );
-      }
-    }, 420);
-  }
-
-  function showNextRound({ lockInputs = true } = {}) {
-    const existing = document.querySelector("[data-next-round]");
-    if (existing) existing.remove();
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "primary-button next-round-button";
-    button.dataset.nextRound = "";
-    button.textContent = role === "setter" ? "結束出題，交換角色 ↗" : "交換角色，開始下一輪 ↗";
-    button.style.cssText = "margin: 11px auto 0; display:flex; height:38px; min-width:0; font-size:9px; justify-content:center;";
+  $$("[data-topic-choice]").forEach((button) => {
     button.addEventListener("click", () => {
-      round += 1;
-      topicNumber = topicNumber % 12 + 1;
-      role = role === "guesser" ? "setter" : "guesser";
-      beginRound();
-    });
-    document.querySelector(".composer-area").append(button);
-    if (lockInputs) {
-      document.querySelectorAll(".composer-area input, .composer-area button:not([data-next-round])").forEach((element) => {
-        element.disabled = true;
+      state.topicChoice = button.dataset.topicChoice;
+      $$("[data-topic-choice]").forEach((choice) => {
+        const selected = choice === button;
+        choice.classList.toggle("is-selected", selected);
+        choice.setAttribute("aria-pressed", String(selected));
       });
-    }
-  }
+    });
+  });
 
-  function answerToQuestion(text) {
-    const q = normalize(text);
-    if (q.includes("家") || q.includes("室內")) return "有可能在家裡看到它喔。";
-    if (q.includes("吃") || q.includes("喝")) return "跟食物沒有直接關係。";
-    if (q.includes("大") || q.includes("小")) return "它的大小剛好方便日常使用。";
-    if (q.includes("顏色")) return "它有很多不同的顏色喔。";
-    if (q.includes("每天") || q.includes("常")) return "很多人都會在需要的時候用到它。";
-    if (q.includes("折")) return "有些款式是可以折起來的。";
-    return "這是個好問題！給你一點方向：日常生活中有時候會用到它。";
-  }
-
-  chatForm.addEventListener("submit", (event) => {
+  $("[data-start-form]").addEventListener("submit", (event) => {
     event.preventDefault();
-    const field = chatForm.elements.message;
-    const value = field.value.trim();
-    if (!value || solved) return;
-    field.value = "";
-    addMessage("you", "你", "你", "avatar-blue", value);
-    if (role === "guesser") {
-      setTimeout(() => addMessage("opponent", "小島", "小", "avatar-orange", answerToQuestion(value)), 500);
+    startMatching();
+  });
+
+  $$(".answer-option").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (state.answers[state.questionIndex]) return;
+      revealAnswer(Number(button.dataset.option));
+    });
+  });
+
+  $("[data-next]").addEventListener("click", () => {
+    if (state.questionIndex + 1 < questionBank[state.topic].length) {
+      state.questionIndex += 1;
+      renderQuestion();
+      $(".game-question").focus({ preventScroll: true });
     } else {
-      setTimeout(() => addMessage("opponent", "小島", "小", "avatar-orange", "謝謝回答！我好像快想到答案了。"), 500);
+      renderResults();
     }
   });
 
-  setterForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const value = setterForm.elements.riddle.value.trim();
-    if (!value) return;
-    current.riddle = value;
-    document.querySelector("[data-riddle]").textContent = value;
-    document.querySelector("[data-riddle-label]").textContent = "你的謎題";
-    document.querySelector("[data-riddle-help]").textContent = "示範玩家正在猜題；在聊天室回答對方的問題。";
-    setterForm.classList.add("hidden");
-    chatForm.classList.remove("hidden");
-      current.answer = setterForm.elements.answer.value.trim();
-      addSystem("謎題送出囉！示範玩家開始猜了。");
-    addMessage("opponent", "小島", "小", "avatar-orange", `這和「${current.topic}」有關嗎？`);
-      showNextRound({ lockInputs: false });
-  });
-
-  guessForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    if (role !== "guesser") {
-      flash("示範版下一輪可以在聊天室體驗出題角色。");
-      return;
-    }
-    const field = guessForm.elements.answer;
-    submitGuess(field.value);
-    field.value = "";
-  });
-
-  document.querySelector("[data-hint]").addEventListener("click", (event) => {
-    if (hintUsed) return flash("這個提示已經看過囉，再想想看！");
-    hintUsed = true;
-    event.currentTarget.disabled = true;
-    addMessage("opponent", "小島", "小", "avatar-orange", `給你一點提示：${current.hint}`);
-  });
-
-  document.querySelectorAll("[data-start]").forEach((button) => button.addEventListener("click", start));
-  document.querySelector("[data-cancel]").addEventListener("click", () => {
-    clearTimeout(pendingMatch);
+  $("[data-cancel]").addEventListener("click", () => {
+    window.clearTimeout(state.matchTimer);
     showView("home");
+    announce("已取消配對");
   });
-  document.querySelectorAll("[data-home]").forEach((button) => button.addEventListener("click", () => {
-    clearTimeout(pendingMatch);
-    clearInterval(timerId);
-    role = "guesser";
-    round = 1;
-    topicNumber = 1;
-    showView("home");
-  }));
-  document.querySelectorAll("[data-show-help]").forEach((button) => button.addEventListener("click", () => modal.showModal()));
-  document.querySelectorAll("[data-close-modal]").forEach((button) => button.addEventListener("click", () => modal.close()));
-  modal.addEventListener("click", (event) => { if (event.target === modal) modal.close(); });
-  document.querySelector("[data-report]").addEventListener("click", () => flash("展示版尚未接上回報服務。正式上線前會加入這項功能。"));
+
+  $$("[data-home]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      if (button.tagName === "A") event.preventDefault();
+      window.clearTimeout(state.matchTimer);
+      showView("home");
+    });
+  });
+
+  $("[data-play-again]").addEventListener("click", startMatching);
+
+  $$("[data-show-help]").forEach((button) => {
+    button.addEventListener("click", () => modal.showModal());
+  });
+  $$("[data-close-modal]").forEach((button) => {
+    button.addEventListener("click", () => modal.close());
+  });
+
+  showView("home");
 })();

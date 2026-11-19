@@ -1,43 +1,55 @@
 # 專案經驗
 
-## GitHub Pages 適用於靜態前端
+## 靜態前端可以呈現流程，不能提供真人同步
 
-- **經驗：** GitHub Pages 會託管靜態檔案，適合先發布前端雛形；它本身不提供配對佇列、即時聊天室、共享遊戲狀態或答案驗證服務。
-- **適用範圍：** 使用 GitHub Pages 發布需要多位訪客即時互動的網站時，先標示展示模式，再規劃獨立的即時後端或託管服務。
-- **本專案做法：** 以瀏覽器內模擬流程呈現產品概念，真人配對列為後續路線圖項目。
+- **經驗：** GitHub Pages 只託管靜態檔案，不會提供配對佇列、多人共享狀態、即時訊息或伺服器答案判定。
+- **適用範圍：** 需要多位訪客即時互動的網頁遊戲或協作產品。
+- **本專案做法：** 原型使用本機範例資料模擬對方作答，並在畫面和說明中標示示範模式。驗證玩法時可用；不能用來宣稱真人配對已完成。
 
-## 專案型 Pages 部署
+## 放在瀏覽器的示範資料是公開的
 
-- **經驗：** 專案頁面通常部署在 `/<repository>/` 子路徑，HTML 引用 CSS、JavaScript 和圖片時使用相對路徑，可避免硬編碼網域根目錄造成資源 404。
-- **適用範圍：** 發布至 `https://<owner>.github.io/<repository>/` 的靜態網站。
-- **本專案做法：** 網站檔案集中在 `site/`，資源引用採相對路徑；Actions workflow 上傳 `site/` artifact，再交由 Pages 部署 action 發布。
+- **經驗：** HTML、JavaScript 和送到瀏覽器的資料都能被訪客檢視。前端範例答案只能供展示，不能用來保護正式答案或裁定競賽結果。
+- **適用範圍：** 有隱藏答案、私人房間、計分或共享遊戲狀態的網頁應用程式。
+- **本專案做法：** 目前答案只用於示範揭曉。真人配對版本應由服務端保存房間狀態，並在雙方答完後授權揭曉。
 
-## GitHub Actions 部署 Pages
+## 專案型 GitHub Pages 使用相對資源路徑
 
-- **經驗：** 使用官方 Pages actions 時，workflow 需要 `pages: write` 和 `id-token: write` 權限；repository 的 Pages source 需設為 GitHub Actions。
-- **適用範圍：** 透過 GitHub Actions 將靜態檔案發布到 GitHub Pages。
-- **本專案做法：** push 到 `main` 或 `master` 時執行部署，並保留手動觸發入口。
+- **經驗：** 專案網站通常部署在 repository 子路徑；HTML 引用樣式、腳本和圖示時使用相對路徑，可避免部署後資源回到網域根目錄而找不到。
+- **適用範圍：** 發布至 owner.github.io/repository/ 的靜態網站。
+- **本專案做法：** 網站集中在 site/，使用同層相對路徑；Pages workflow 上傳 site/ artifact 再發布。
 
-## GitHub Actions runner 執行環境警告
+## GitHub Pages 部署權限與設定
 
-- **經驗：** 部署 action 即使尚能執行，也可能先出現執行階段棄用警告；部署失敗時應查看失敗步驟的 annotation，再區分警告和真正錯誤，並參照官方 release 更新主要版本。
-- **適用範圍：** 使用 GitHub Actions 的網站部署與持續整合 workflow。
-- **本專案做法：** Pages workflow 從 checkout v4、configure-pages v5、upload-pages-artifact v3 和 deploy-pages v4 更新至查得的目前主要版本；首次失敗的實際原因是 Pages 在 workflow 啟動時尚未啟用。
+- **經驗：** Pages Actions 需要 pages: write 與 id-token: write 權限，repository 的 Pages source 也必須設為 GitHub Actions。
+- **適用範圍：** 使用 GitHub Actions 發布 GitHub Pages 網站。
+- **本專案做法：** workflow 已存在並在遠端成功發布。部署失敗時先看實際失敗步驟與 annotation；runner 棄用警告和真正的部署錯誤要分開處理。
 
-## 即時遊戲狀態與答案保護
+## 靜態前端不可放伺服器祕密
 
-- **經驗：** 靜態前端中的答案只適合展示原型；任何送到瀏覽器的程式與資料都能被玩家檢視。真人遊戲應由伺服器保管謎底並判定答案，伺服器也應作為計時與回合切換的權威來源。
-- **適用範圍：** 有隱藏答案、競賽結果、倒數或多位玩家共享狀態的瀏覽器遊戲。
-- **本專案做法：** 單機展示版以 JavaScript 模擬答案判定；出題者輸入謎題和謎底的介面可展示流程，但答案目前仍會送到瀏覽器。接上真人配對服務前，需把謎底和回合狀態移到後端。
+- **經驗：** 公開網站的前端檔案和建置產物都可被下載，不能包含 Personal Access Token、service role key 或其他伺服器祕密。
+- **適用範圍：** GitHub Pages 等靜態主機連接第三方服務。
+- **本專案做法：** 目前不需要服務金鑰。未來接後端時，只能在前端放可公開的用戶端設定，並由伺服器權限規則保護房間與玩家資料。
 
-## 靜態網站的憑證邊界
+## 示範配對要清楚標示，不暗示真人在線
 
-- **經驗：** GitHub Pages 發布的前端內容是公開可讀的，不可把 Personal Access Token、服務角色金鑰或其他伺服器祕密放進 HTML、JavaScript、建置產物或公開 repository。
-- **適用範圍：** GitHub Pages 或其他靜態主機搭配第三方後端服務的網站。
-- **本專案做法：** 尚未加入任何服務金鑰；選定即時後端後，前端只使用允許公開的用戶端設定，並由後端存取規則保護房間和資料。
+- **經驗：** 以固定範例對象補足單人互動流程時，如果沒有持續揭露示範限制，使用者容易以為正在和真人配對。
+- **適用範圍：** 服務尚未接上真人、支付或外部資料時的互動原型。
+- **本專案做法：** 配對等待頁、遊戲室和說明視窗都揭露對方及答案由本機資料模擬，並說明資料不會保存。這能驗證畫面流程，不能驗證配對成功率或雙人同步。
 
-## GitHub 網頁登入與本機 Git 授權
+## 互動狀態改變時要維持鍵盤與讀屏脈絡
 
-- **經驗：** 在瀏覽器登入 GitHub 不會自動為 Git 命令列設定 push 權限；Windows 上可使用 Git Credential Manager 完成一次 OAuth 授權，避免把 Personal Access Token 貼進聊天或原始碼。
-- **適用範圍：** 使用 Git for Windows 從本機建立遠端 repository、push commit 或查詢 GitHub Actions 時。
-- **本專案做法：** 透過 Git Credential Manager 授權 `310182-sketch`，設定本機 repository 使用 `manager` helper，再建立 `origin` 並推送。
+- **經驗：** 單頁流程切換後，鍵盤焦點若留在已隱藏的控制項，下一步操作會不明確；揭曉結果若沒有即時宣告，讀屏使用者也難以察覺狀態已改變。
+- **適用範圍：** 單頁應用、逐步表單、問答遊戲和其他動態內容。
+- **本專案做法：** 主畫面用 aria-live 宣告配對狀態；答題後把焦點移到下一題按鈕；提供鍵盤焦點樣式與減少動態效果支援。仍需透過實際裝置和輔助科技檢查。
+
+## GitHub 網頁登入不等於 Git push 授權
+
+- **經驗：** 在瀏覽器登入 GitHub 不會自動為本機 Git 設定 push 權限；使用 Git Credential Manager 的官方登入流程可避免把 Personal Access Token 傳入聊天或原始碼。
+- **適用範圍：** 使用 Git for Windows 推送 commit、建立 repository 或查詢 Actions 時。
+- **本專案做法：** 使用已授權的 Git Credential Manager。開始改動前先檢查目前分支與 remote；遠端產品方向不同時，先用獨立分支保留原有 main。
+
+## 本機預覽也可能載入舊版樣式
+
+- **經驗：** 反覆在同一個 localhost 網址預覽時，嵌入式瀏覽器可能沿用先前快取的同名 CSS。畫面部分樣式正常、不代表新樣式已載入。
+- **適用範圍：** 靜態網站原型的本機反覆預覽與視覺除錯。
+- **本專案做法：** 先比對伺服器實際回傳的 CSS，再用重新載入或更新樣式連結的版本參數排除快取；必要時從瀏覽器讀取 computed style 驗證字級和狀態。
