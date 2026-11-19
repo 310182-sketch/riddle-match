@@ -123,12 +123,17 @@ Deno.test("account limits and block writes serialize concurrent requests", async
   let matcher: PgClient | null = null;
   let quotaCreator: PgClient | null = null;
   let quotaWaiter: PgClient | null = null;
+  let ticketQuotaHolder: PgClient | null = null;
+  let ticketQuotaWaiter: PgClient | null = null;
   let blockerTransactionOpen = false;
   let matcherTransactionOpen = false;
   let quotaCreatorTransactionOpen = false;
   let quotaWaiterTransactionOpen = false;
+  let ticketQuotaHolderTransactionOpen = false;
+  let ticketQuotaWaiterTransactionOpen = false;
   let requestPromise: ReturnType<PgClient["query"]> | null = null;
   let quotaRequestPromise: ReturnType<PgClient["query"]> | null = null;
+  let ticketQuotaRequestPromise: ReturnType<PgClient["query"]> | null = null;
 
   try {
     await applyMigrations(admin);
@@ -212,10 +217,97 @@ Deno.test("account limits and block writes serialize concurrent requests", async
       "the concurrent request does not create a seventh room",
     );
 
+    for (let ticket = 0; ticket < 11; ticket += 1) {
+      await admin.query(
+        `
+        insert into public.matchmaking_queue (
+          user_id, topic_choice, nickname, status
+        ) values ($1, 'travel', 'Quota', 'cancelled')
+      `,
+        [users.quota],
+      );
+    }
+
+    ticketQuotaHolder = await connect("matchmaking-quota-holder");
+    ticketQuotaWaiter = await connect("matchmaking-quota-waiter");
+    await setAuthenticatedUser(ticketQuotaHolder, users.quota);
+    ticketQuotaHolderTransactionOpen = true;
+    const createdTicket = await ticketQuotaHolder.query<{
+      response: { status: string; ticket_id: string };
+    }>("select public.queue_for_match($1, $2) as response", [
+      "travel",
+      "Quota",
+    ]);
+    assertEquals(
+      createdTicket.rows[0].response.status,
+      "waiting",
+      "the twelfth matchmaking ticket within the quota is allowed",
+    );
+    const cancelledTicket = await ticketQuotaHolder.query<{
+      response: { status: string };
+    }>("select public.cancel_matchmaking($1::uuid) as response", [
+      createdTicket.rows[0].response.ticket_id,
+    ]);
+    assertEquals(
+      cancelledTicket.rows[0].response.status,
+      "cancelled",
+      "the ticket is cancelled before the next request",
+    );
+
+    await setAuthenticatedUser(ticketQuotaWaiter, users.quota);
+    ticketQuotaWaiterTransactionOpen = true;
+    let ticketQuotaRequestFinished = false;
+    ticketQuotaRequestPromise = ticketQuotaWaiter.query(
+      "select public.queue_for_match($1, $2) as response",
+      ["travel", "Quota"],
+    ).finally(() => {
+      ticketQuotaRequestFinished = true;
+    });
+    let ticketQuotaError: unknown = null;
+    const ticketQuotaRequestSettled = ticketQuotaRequestPromise.catch((
+      error: unknown,
+    ) => {
+      ticketQuotaError = error;
+    });
+    await waitForAdvisoryLock(
+      admin,
+      "matchmaking-quota-waiter",
+      () => ticketQuotaRequestFinished,
+    );
+
+    await ticketQuotaHolder.query("commit");
+    ticketQuotaHolderTransactionOpen = false;
+    await ticketQuotaRequestSettled;
+    await ticketQuotaWaiter.query("rollback");
+    ticketQuotaWaiterTransactionOpen = false;
+    assert(
+      ticketQuotaError instanceof Error &&
+        ticketQuotaError.message.includes("Matchmaking rate limit reached"),
+      "a concurrent queue request must not exceed the account ticket limit",
+    );
+    const quotaTicketCount = await admin.query<{ count: string }>(
+      `
+      select count(*)::text as count
+      from public.matchmaking_queue
+      where user_id = $1
+        and created_at > clock_timestamp() - interval '10 minutes'
+    `,
+      [users.quota],
+    );
+    assertEquals(
+      quotaTicketCount.rows[0].count,
+      "12",
+      "the concurrent request does not create a thirteenth ticket",
+    );
+
     await quotaCreator.end();
     await quotaWaiter.end();
     quotaCreator = null;
     quotaWaiter = null;
+    await ticketQuotaHolder.end();
+    await ticketQuotaWaiter.end();
+    ticketQuotaHolder = null;
+    ticketQuotaWaiter = null;
 
     const roomResult = await admin.query<{ id: string }>(
       `
@@ -351,11 +443,20 @@ Deno.test("account limits and block writes serialize concurrent requests", async
     if (quotaWaiterTransactionOpen && quotaWaiter) {
       await quotaWaiter.query("rollback").catch(() => undefined);
     }
+    if (ticketQuotaHolderTransactionOpen && ticketQuotaHolder) {
+      await ticketQuotaHolder.query("rollback").catch(() => undefined);
+    }
+    if (ticketQuotaWaiterTransactionOpen && ticketQuotaWaiter) {
+      await ticketQuotaWaiter.query("rollback").catch(() => undefined);
+    }
     if (blockerTransactionOpen && blocker) {
       await blocker.query("rollback").catch(() => undefined);
     }
     if (quotaRequestPromise) {
       await quotaRequestPromise.catch(() => undefined);
+    }
+    if (ticketQuotaRequestPromise) {
+      await ticketQuotaRequestPromise.catch(() => undefined);
     }
     if (requestPromise) {
       await requestPromise.catch(() => undefined);
@@ -366,6 +467,8 @@ Deno.test("account limits and block writes serialize concurrent requests", async
     await Promise.all([
       quotaCreator?.end(),
       quotaWaiter?.end(),
+      ticketQuotaHolder?.end(),
+      ticketQuotaWaiter?.end(),
       blocker?.end(),
       matcher?.end(),
       admin.end(),
