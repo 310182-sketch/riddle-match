@@ -168,3 +168,9 @@
 - **經驗：** 靜態前端不能安全持有 Supabase service role key，也不能直接刪除 `auth.users`。刪除函式應驗證呼叫者的 JWT，從已驗證 session 取得帳號 ID，不接受瀏覽器指定任意目標 ID；再由後端 service role 執行管理刪除。可用精確 origin allow list 限制瀏覽器來源，並讓前端在函式部署和來源設定完成前保持停用。
 - **適用範圍：** GitHub Pages 等靜態網站需要提供 Supabase 使用者自助刪除帳號的產品。
 - **本專案做法：** `delete-account` Edge Function 用使用者 session 呼叫 Auth `getUser()`，再以後端 service role 刪除剛驗證的 `user.id`；前端只呼叫 Edge Function，公開設定只存 `accountDeletionEnabled`。帳號刪除前的資料庫 trigger 先結束進行中房間並取消等待票券，避免單純 cascade 刪除成員後留下仍顯示 playing 的房間。PGlite 可檢查資料庫 trigger、外鍵和匿名化，但 Supabase Auth Admin 權限、Edge secret、JWT 驗證和 CORS origin 必須在真實專案驗證。
+
+## 響應式窄版需同時檢查捲軸與控制項名稱
+
+- **經驗：** 窄螢幕常隱藏按鈕的文字，只留下箭頭或圖示；如果按鈕沒有 `aria-label` 或其他等效名稱，讀屏看到的可能只剩符號。桌面瀏覽器模擬手機寬度時，傳統垂直捲軸也會縮小頁面可用寬度；`min-width` 若等於模擬視窗寬度，可能額外觸發水平捲動。檢查響應式畫面時，應核對控制項名稱及根節點實際 `clientWidth`／`scrollWidth`。
+- **適用範圍：** 導覽按鈕、圖示按鈕、行動版工具列，以及任何會依斷點改變可見標籤或容器最小寬度的網頁介面。
+- **本專案做法：** 320px 歷史頁預覽中，「回首頁」文字被隱藏後，瀏覽器無障礙樹只提供「←」作為按鈕名稱；`body` 的 320px 最小寬度又比含垂直捲軸的 305px 可用寬度大。已為邀請房與歷史頁返回按鈕補上 `aria-label="回到首頁"`，並移除 `body` 硬性最小寬度；修正後以 320／360px 預覽重驗。真實 iOS／Android 與讀屏驗證仍待執行。
