@@ -15,7 +15,7 @@
 - **仍是模擬：** 對方答案來自瀏覽器範例資料。尚未提供真實登入、建立／加入房間、真人隨機配對、跨裝置同步、遊戲歷史或共同點統計。結果頁已可產生 1080×1920 PNG，支援系統分享面板及下載備援；尚未在 iOS／Android 實機確認 Instagram 交接。
 - **後端：** `supabase/migrations/` 已包含即時對局、隨機配對、邀請房間、雙人歷史摘要及查詢 RPC 草稿；尚未建立 Supabase 專案、套用或執行驗證。尚無線上資料庫、Auth、Realtime 或已驗證的 RLS。
 - **資料政策：** 真人對局房間及原始答案保留到結束後 24 小時，另存玩家各自可查詢、可刪除的對局摘要 90 天；統計只計最近 90 天。這是目前採用的 MVP 預設，migration 擴充草稿已完成，尚未套用或部署驗證。
-- **登入與社群：** 已確認產品範圍包含匿名登入及 Instagram、Facebook、Google、X、Threads；尚未設定 OAuth provider 或驗證各平台流程。Instagram 與 Threads 的官方登入方式及 Supabase 自訂 provider 可行性仍須確認。
+- **登入與社群：** 已完成官方 provider 支援盤點：Supabase 內建 Facebook、Google、X OAuth 2.0；Instagram 與 Threads 需用 custom OAuth。Meta Instagram Login 限專業帳號，Threads 向一般使用者開放前需 app review。尚未建立 provider app、設定 callback 或測試登入和匿名帳號連結。
 - **前端設計：** 已完成第一輪整體字級、留白、按鈕及主題選項版面整理，並加入房間、配對等待和歷史空狀態的操作預覽；需重跑窄螢幕檢查，真實成功／逾時狀態與後端資料仍待串接。
 - **發布：** 功能分支的 Pages workflow 已推送並觸發，但 GitHub 因 github-pages 環境保護規則禁止此分支部署。需確認是否將此分支加入允許清單，再重新部署。
 - **工作區：** 原型位於 `site/`，可直接開啟 `site/index.html` 操作，不需安裝套件或建置。
@@ -57,6 +57,7 @@
 - [x] 確立兩人一局、單一主題、每題兩個選項；互動原型使用五題。
 - [x] 確立玩家可指定主題或使用隨機主題。
 - [x] 確立匿名登入與社群登入並存，產品目標 provider 為 Instagram、Facebook、Google、X、Threads。
+- [x] 查明 Supabase 內建與 custom provider 支援方式，並記錄 Instagram 專業帳號限制、Threads app review 和 custom provider 名額。
 - [x] 確立玩家可建立房間邀請他人，也可使用隨機配對。
 - [x] 將已完成遊戲的歷史查詢及最有共同點玩家統計納入產品範圍。
 - [x] 定義建立房間使用 12 位代碼；房間等待 10 分鐘後失效，每個帳號同時只能參加一個有效房間。
@@ -64,7 +65,8 @@
 - [x] 定義隨機配對等待上限為 30 秒；逾時可重新排隊，房間閒置 10 分鐘後失效。
 - [x] 定義房間與原始答案於結束後 24 小時清除，個人歷史摘要保存 90 天且可逐筆刪除。
 - [x] 定義共同點排名只看最近 90 天，至少 3 局才上榜，依共同答案比例排序並顯示樣本數。
-- [ ] 驗證 Instagram、Facebook、Google、X、Threads 的 OAuth/OIDC 設定、callback、開發者資格及 Supabase provider 支援方式。
+- [ ] 建立 Facebook、Google、X provider app 並驗證 OAuth 2.0 callback、測試帳號與公開環境設定。
+- [ ] 評估 Instagram 專業帳號登入與 Threads custom OAuth；完成 Meta app review，驗證 Supabase callback、個人檔案識別及匿名帳號 linking。
 - [ ] 規劃檢舉、封鎖、濫用處理和必要的個資告知。
 
 ### 2. 互動原型與前端體驗
@@ -92,8 +94,8 @@
 - [x] 加入完成對局時的雙方私人歷史摘要、90 天查詢與保留、逐筆刪除、共同點排名及帳號刪除匿名化草稿。
 - [ ] 建立 Supabase 專案與開發／正式環境，啟用 Anonymous Auth，套用並實際驗證 migration。
 - [ ] 完成 RLS、Realtime、RPC 權限和資料驗證；確保玩家只能查看有權存取的房間、答案與紀錄。
-- [ ] 接上匿名登入、匿名帳號連結及社群 provider 登入、session 恢復、callback 與錯誤處理。
-- [ ] 依官方 provider 能力接入 Google、Facebook、X；完成 Instagram、Threads 的 OAuth/OIDC 可行性驗證及整合方案。
+- [ ] 接上匿名登入、匿名帳號手動 linking 及 Facebook／Google／X 登入，處理 session 恢復、callback 與錯誤狀態。
+- [ ] 依 Meta 的帳號資格及 app review 狀態加入 Instagram、Threads custom OAuth，確認 provider 身分能連結到原匿名玩家。
 - [ ] 將瀏覽器示範流程接上登入、建立／加入房間、隨機配對 RPC、Realtime 狀態與雙人作答同步。
 - [ ] 確保只有雙方完成作答後才揭曉答案，並處理重複送出、逾時、離線、中途離開、重連及取消配對。
 - [x] 建立已完成對局的持久紀錄與受權限保護的歷史查詢 RPC 草稿，按定案的保存政策清除或匿名化資料。

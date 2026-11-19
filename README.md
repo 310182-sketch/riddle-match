@@ -33,7 +33,7 @@ Repository 的 .github/workflows/pages.yml 會將 site/ 發布至 GitHub Pages�
 
 ## 下一步
 
-- 在 Supabase 專案套用並驗證 migration、RLS、匿名登入、Realtime 和資料清除排程。
+- 建立 Supabase 專案，套用並驗證 migration、RLS、匿名登入、Realtime 和資料清除排程；設定 Facebook、Google、X，並依 Meta 審查結果評估 Instagram、Threads custom OAuth。
 - 將前端示範流程接上真人配對 RPC，並用兩個不同裝置走完整局。
 - 在 iOS／Android 實機與 VoiceOver／TalkBack 檢查無障礙操作，收集玩家回饋。
 - 真人 MVP 上線前完成檢舉、封鎖、離線處理及匿名帳號濫用風險規劃。

@@ -107,3 +107,9 @@
 - **經驗：** 可操作的假代碼或等待畫面容易被當成真實服務；若明確說明無法跨裝置、未向伺服器驗證且不會保存紀錄，仍能展示介面而不誤導玩家。
 - **適用範圍：** API、登入或即時服務尚未接通，但需要先檢視前端流程的產品原型。
 - **本專案做法：** 邀請代碼、隨機配對等待及歷史頁都顯示尚未連線的限制；歷史頁採空狀態，不展示虛構的真實紀錄。完成 Supabase 前端串接後再以真實成功、錯誤和逾時回應取代這些預覽。
+
+## 社群 API 可用不等於所有帳號都能拿來登入
+
+- **經驗：** 社群平台的內容 API、OAuth 授權與通用登入服務是不同能力；需核對帳號資格、可取得的穩定識別碼、email、token 期限、app review 和 Auth 服務的 custom provider 要求。
+- **適用範圍：** 把 Facebook、Google、X、Instagram、Threads 等第三方身分接入自有帳號系統的網頁或 App。
+- **本專案做法：** 先使用 Supabase 內建的 Facebook、Google、X provider；Instagram Login 目前限專業帳號，Threads 要用 custom OAuth 並完成 app review。Instagram／Threads 不保證有 email，因此匿名帳號連結需測試手動 identity linking。每次實作前重新查閱官方文件，因 provider 條件和審核政策可能變動。

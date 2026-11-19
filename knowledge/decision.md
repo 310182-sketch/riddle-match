@@ -38,7 +38,19 @@
 - **狀態：** 已確認納入產品範圍，尚未實作或設定 OAuth。
 - **決定：** 提供匿名登入，以及 Instagram、Facebook、Google、X、Threads 社群登入。匿名帳號連結社群身分時需保留玩家 ID 與可延續的歷史紀錄。
 - **設定界線：** provider secret 僅存在後端／Supabase Auth 設定；GitHub Pages 前端只使用公開的 project URL 和 anon key。
-- **待驗證：** 各平台官方 OAuth/OIDC 支援、Supabase provider 能力、callback URL、開發者資格、測試帳號、帳號重複連結與登出後重新登入。Instagram 與 Threads 需特別確認可用的登入產品及自訂 provider 整合方式。
+- **待驗證：** 建立各平台 app、callback URL、公開應用資格和測試帳號；實測 provider 組態、重複帳號連結、登出後重新登入及匿名帳號轉正式身分。平台支援限制見下方技術審查。
+
+## 社群登入技術審查
+
+- **狀態：** 已查閱 Supabase、Meta 和 X 官方文件（2026-11-20）；尚未建立 provider app、設定 callback 或執行登入測試。
+- **Facebook／Google：** Supabase Auth 內建 provider，可直接採用官方設定流程。
+- **X：** Supabase 現行建議使用內建的 X／Twitter OAuth 2.0 provider；官方文件指出舊 Twitter OAuth 1.0a provider 將在未來版本淘汰。
+- **Instagram：** 不在 Supabase 內建清單。Meta 的 Instagram Login 可用 OAuth 2.0 接入 Supabase custom OAuth provider，但官方產品目前面向 Instagram 專業帳號（商家與創作者），不能當作所有個人帳號通用登入。推薦只把它提供給符合 Meta 條件的專業帳號，並保留匿名登入作為一般玩家入口。
+- **Threads：** 不在 Supabase 內建清單。Meta Threads API 提供 OAuth 2.0 使用者授權及 `threads_basic` 個人檔案權限，可評估以 Supabase custom OAuth provider 接入；向沒有應用程式角色的一般使用者開放前需完成 Meta app review。
+- **Supabase 限額：** Free plan 可新增最多 3 個 custom provider；Instagram 與 Threads 共用其中 2 個名額。
+- **帳號連結：** Instagram／Threads 不保證提供可供帳號自動合併的 email。匿名帳號升級時應使用已登入狀態下的手動 identity linking；Supabase 將此功能標示為 beta，custom provider 連結尚須實測。不能只依賴相同 email 自動連結。
+- **推薦實作順序：** 先完成 Google、Facebook、X 內建 provider，再驗證 Threads custom OAuth；Instagram custom OAuth 僅依專業帳號限制提供。所有流程均須使用 Supabase callback，client secret 保留在 Supabase Auth 設定。
+- **官方依據：** [Supabase social sign-in](https://supabase.com/docs/guides/auth/social-login)、[Supabase custom OAuth/OIDC providers](https://supabase.com/docs/guides/auth/custom-oauth-providers)、[Supabase identity linking](https://supabase.com/docs/guides/auth/identity-linking)、[Meta Instagram Login](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/)、[Meta Threads API](https://developers.facebook.com/docs/threads/get-started/)、[Supabase X OAuth 2.0](https://supabase.com/docs/guides/auth/social-login/auth-twitter)。
 
 ## 歷史紀錄與共同點統計
 
