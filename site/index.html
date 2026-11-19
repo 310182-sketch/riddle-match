@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#f7f4ee">
     <meta name="description" content="和陌生人配對，用提問和線索猜出謎底。">
     <title>謎友 — 和陌生人玩一場猜謎</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -82,7 +83,13 @@
               <div class="composer-area">
                 <form class="chat-composer" data-chat-form><label class="sr-only" for="chat-message">輸入問題或回答</label><input id="chat-message" name="message" type="text" maxlength="180" autocomplete="off" placeholder="問一個問題…" required><button class="send-button" type="submit" aria-label="送出訊息">↑</button></form>
                 <form class="guess-composer" data-guess-form><label class="sr-only" for="guess-answer">輸入你的答案</label><input id="guess-answer" name="answer" type="text" maxlength="100" autocomplete="off" placeholder="我猜答案是…" required><button class="guess-button" type="submit">猜答案 <span aria-hidden="true">↗</span></button></form>
-                <form class="setter-composer hidden" data-setter-form><label class="sr-only" for="setter-riddle">輸入你出的謎題</label><input id="setter-riddle" name="riddle" type="text" maxlength="180" autocomplete="off" placeholder="寫一個符合主題的謎題…" required><button class="guess-button" type="submit">送出謎題 <span aria-hidden="true">↗</span></button></form>
+                <form class="setter-composer hidden" data-setter-form>
+                  <div class="setter-fields">
+                    <label class="sr-only" for="setter-riddle">輸入你出的謎題</label><input id="setter-riddle" name="riddle" type="text" maxlength="180" autocomplete="off" placeholder="寫一個符合主題的謎題…" required>
+                    <label class="sr-only" for="setter-answer">輸入正確答案</label><input id="setter-answer" name="answer" type="text" maxlength="80" autocomplete="off" placeholder="正確答案" required>
+                  </div>
+                  <button class="guess-button" type="submit">送出謎題 <span aria-hidden="true">↗</span></button>
+                </form>
                 <button class="hint-button" type="button" data-hint><span aria-hidden="true">✧</span> 給我一點提示</button>
               </div>
             </section>

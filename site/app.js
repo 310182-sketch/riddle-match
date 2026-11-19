@@ -58,16 +58,20 @@
   }
 
   function beginRound() {
-    current = round === 1 && role === "guesser" ? initialTopic : topics[(topicNumber - 1) % topics.length];
+    const template = round === 1 && role === "guesser" ? initialTopic : topics[(topicNumber - 1) % topics.length];
+    current = { ...template };
+    if (role === "setter") current.answer = "";
     hintUsed = false;
     solved = false;
     secondsLeft = 299;
     document.querySelector("[data-next-round]")?.remove();
     setterForm.elements.riddle.value = "";
+    setterForm.elements.answer.value = "";
     chatForm.elements.message.disabled = false;
     chatForm.querySelector("button").disabled = false;
     guessForm.elements.answer.disabled = false;
     guessForm.querySelector("button").disabled = false;
+    setterForm.querySelectorAll("input, button").forEach((element) => { element.disabled = false; });
     document.querySelector("[data-hint]").disabled = false;
     document.querySelector("[data-round]").textContent = String(round).padStart(2, "0");
     document.querySelector("[data-topic]").textContent = current.topic;
@@ -129,9 +133,20 @@
       output.textContent = `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`;
       if (secondsLeft <= 0) {
         clearInterval(timerId);
-        addSystem("時間到囉！這是展示版，按「離開這局」可以再來一輪。");
+        finishByTimeout();
       }
     }, 1000);
+  }
+
+  function finishByTimeout() {
+    const reveal = role === "guesser"
+      ? `時間到囉！這題的答案是「${current.answer}」。下一輪交換角色。`
+      : current.answer
+        ? `時間到囉！示範玩家還沒猜中，這題的答案是「${current.answer}」。下一輪交換角色。`
+        : "時間到囉！本輪還沒完成出題，下一輪直接交換角色。";
+    addMessage("opponent", "小島", "小", "avatar-orange", reveal);
+    addSystem("本輪結束，按下方按鈕交換角色並開始新主題。");
+    showNextRound();
   }
 
   function normalize(text) {
@@ -166,7 +181,7 @@
     }, 420);
   }
 
-  function showNextRound() {
+  function showNextRound({ lockInputs = true } = {}) {
     const existing = document.querySelector("[data-next-round]");
     if (existing) existing.remove();
     const button = document.createElement("button");
@@ -182,12 +197,10 @@
       beginRound();
     });
     document.querySelector(".composer-area").append(button);
-    if (role === "guesser") {
-      document.querySelector("[data-chat-form] input").disabled = true;
-      document.querySelector("[data-chat-form] button").disabled = true;
-      document.querySelector("[data-hint]").disabled = true;
-      guessForm.querySelector("input").disabled = true;
-      guessForm.querySelector("button").disabled = true;
+    if (lockInputs) {
+      document.querySelectorAll(".composer-area input, .composer-area button:not([data-next-round])").forEach((element) => {
+        element.disabled = true;
+      });
     }
   }
 
@@ -226,9 +239,10 @@
     document.querySelector("[data-riddle-help]").textContent = "示範玩家正在猜題；在聊天室回答對方的問題。";
     setterForm.classList.add("hidden");
     chatForm.classList.remove("hidden");
-    addSystem("謎題送出囉！示範玩家開始猜了。");
+      current.answer = setterForm.elements.answer.value.trim();
+      addSystem("謎題送出囉！示範玩家開始猜了。");
     addMessage("opponent", "小島", "小", "avatar-orange", `這和「${current.topic}」有關嗎？`);
-    showNextRound();
+      showNextRound({ lockInputs: false });
   });
 
   guessForm.addEventListener("submit", (event) => {

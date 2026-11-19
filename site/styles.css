@@ -142,7 +142,12 @@ h1 span { color: var(--green); }
 .chat-composer input,.guess-composer input { min-width: 0; flex: 1; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 10px; padding: 0 8px; }
 .chat-composer input::placeholder,.guess-composer input::placeholder { color: #b1b0a7; }
 .send-button { border: 0; width: 31px; border-radius: 5px; color: white; background: var(--green); cursor: pointer; font-size: 15px; }
-.guess-composer,.setter-composer { display: flex; gap: 7px; margin-top: 7px; height: 39px; }
+.guess-composer { display: flex; gap: 7px; margin-top: 7px; height: 39px; }
+.setter-composer { display: flex; flex-direction: column; gap: 7px; margin-top: 7px; }
+.setter-fields { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(90px,.8fr); gap: 7px; }
+.setter-fields input { min-width: 0; width: 100%; height: 39px; border: 1px solid #e7e5dc; border-radius: 7px; background: transparent; color: var(--ink); outline: 0; padding: 0 9px; font-size: 9px; }
+.setter-fields input::placeholder { color: #b1b0a7; }
+.setter-composer .guess-button { height: 35px; justify-content: center; }
 .guess-composer input { border: 1px solid #e7e5dc; border-radius: 7px; }
 .guess-button { border: 0; border-radius: 7px; padding: 0 11px; display: flex; align-items: center; gap: 8px; background: #f1eee4; color: #5a604f; font-size: 9px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .guess-button:hover { background: #e9e6d9; }
