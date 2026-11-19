@@ -18,7 +18,7 @@
 - **登入與社群：** 已加入可選的 Supabase Auth 前端入口，包含匿名登入、Google／Facebook／X OAuth、Instagram／Threads custom provider 設定、PKCE session 恢復及匿名帳號 identity linking。Chrome mock client 已驗證登入狀態和 provider 呼叫；尚無 Supabase URL／anon key，登入按鈕目前停用，live login／callback／帳號 linking 仍未設定或驗證。平台限制見 [knowledge/decision.md](decision.md)。
 - **前端設計：** 已完成第一輪整體字級、留白、按鈕及主題選項版面整理；房間、真人答題、隨機配對等待及歷史頁已接上 RPC，無設定時仍保留清楚標示的操作預覽。Chrome mock 驗證流程分支；六種寬度與鍵盤流程的前一輪檢查已通過。真人服務環境的實際網路狀態仍待驗證。
 - **發布：** run 57、run 59 與 run 61 的 verify、block_race 和 deploy 全部成功，公開網站已部署；run 56 首次執行 headless Chrome 回歸測試時因遊戲輪詢計時器未清除而逾時，測試加入 mock 登出清理後已於 run 57 通過。run 48 曾遇到 `github-pages` artifact 讀取失敗，後續 run 49、50、53、54、55、57 均成功。真人登入和後端尚未設定，仍維持停用狀態。詳見 [run 57](https://github.com/310182-sketch/riddle-match/actions/runs/44628380613)、[run 59](https://github.com/310182-sketch/riddle-match/actions/runs/44630772481)、[run 61](https://github.com/310182-sketch/riddle-match/actions/runs/44632847853) 和 [公開網站](https://310182-sketch.github.io/riddle-match/)。
-- **安全營運：** 前端及後端草稿已提供同房檢舉、封鎖與解除封鎖、服務端配對／開房限量及隱私告知。此原型沒有人工審查人員或支援聯絡方式；正式公開前須建立案件審查、聯絡和緊急處理流程，不能宣稱檢舉會即時有人處理。
+- **安全營運：** 前端及後端草稿已提供同房檢舉、封鎖與解除封鎖、服務端配對／開房限量及隱私告知。案件受限於服務端管理權限，限期 180 天清除。已在決策紀錄整理案件分流、人工覆核、升級及回覆時限的建議草案；目前仍沒有指定審查人員、玩家聯絡方式、值班安排或審查工具，草案不是現行服務承諾，正式公開前不得宣稱有人即時處理。
 - **工作區：** 原型位於 `site/`，可直接開啟 `site/index.html` 操作，不需安裝套件或建置。
 - **產品方向：** 遠端 `main` 保留原有猜謎版本；本分支依本計畫製作二選一共同點遊戲，詳見 [knowledge/decision.md](decision.md)。
 
@@ -74,7 +74,9 @@
 - [x] 定義刪除帳號會移除登入身分、本人歷史和封鎖資料；匿名化其他人的歷史，並解除檢舉與帳號 ID 的連結後按原期限清除。
 - [ ] 建立 Facebook、Google、X provider app 並驗證 OAuth 2.0 callback、測試帳號與公開環境設定。
 - [ ] 評估 Instagram 專業帳號登入與 Threads custom OAuth；完成 Meta app review，驗證 Supabase callback、個人檔案識別及匿名帳號 linking。
-- [ ] 指定正式營運審查人員、玩家聯絡方式、處理時限和緊急升級流程；建立前不得宣稱有人即時審查檢舉。
+- [x] 草擬檢舉案件處理流程與優先級、人工覆核及建議初次檢視時限；明確標為待核准方案，尚未形成服務承諾。
+- [ ] 指定案件負責人與審查人員，確認值班時段、玩家聯絡管道及案件回覆方式。
+- [ ] 核准各類案件的初次檢視時限、升級條件、處理結果及申訴方式；確認緊急安全事件的對外指引與責任窗口。
 - [ ] 依正式服務地區覆核隱私告知、檢舉資料期限及帳號刪除流程。
 
 ### 2. 互動原型與前端體驗
@@ -148,6 +150,8 @@
 - [ ] 安全保存 provider secret；靜態前端僅使用公開 project URL 與 anon key，不暴露 service role key。
 - [ ] 在兩部不同裝置上驗證建立房間、代碼加入、隨機配對、完整遊戲、歷史查詢和統計。
 - [ ] 使用正式 Supabase Auth／RLS 驗證封鎖及解除封鎖、邀請房封鎖競態、檢舉權限、限量競態與 180 天清理排程。
+- [ ] 建立僅授權審查人員可用的案件佇列與審查紀錄，包含狀態、處理結果、存取稽核及到期清除；不得開放一般玩家讀取檢舉表。
+- [ ] 依核准的案件分流流程完成檢舉提交、人工審查、玩家回覆、升級及期限清除的端對端驗證。
 - [ ] 部署帳號刪除 Edge Function，設定 `ALLOWED_ORIGINS` 和 Supabase 後端 service role secret，真人驗證後才將 `accountDeletionEnabled` 設為 `true`。
 - [ ] 在正式 Supabase 驗證匿名及社群帳號刪除、JWT／origin 拒絕、Auth 資料清理、歷史匿名化及正在進行的對局收尾。
 - [ ] 在 Supabase 真人環境檢查檢舉表單、對局安全操作和封鎖清單；再以 iOS／Android 與 VoiceOver／TalkBack 驗證。
