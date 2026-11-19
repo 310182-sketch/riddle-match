@@ -17,7 +17,7 @@
 - **資料政策：** 真人房間、配對票券及原始答案最多保留 24 小時；個人歷史摘要保存 90 天且可逐筆刪除；檢舉資料保存 180 天；封鎖關係保留至解除或刪除帳號。這些是目前採用的 MVP 預設，尚未部署或在 Supabase 驗證。
 - **登入與社群：** 已加入可選的 Supabase Auth 前端入口，包含匿名登入、Google／Facebook／X OAuth、Instagram／Threads custom provider 設定、PKCE session 恢復及匿名帳號 identity linking。Chrome mock client 已驗證登入狀態和 provider 呼叫；尚無 Supabase URL／anon key，登入按鈕目前停用，live login／callback／帳號 linking 仍未設定或驗證。平台限制見 [knowledge/decision.md](decision.md)。
 - **前端設計：** 已完成第一輪整體字級、留白、按鈕及主題選項版面整理；房間、真人答題、隨機配對等待及歷史頁已接上 RPC，無設定時仍保留清楚標示的操作預覽。Chrome mock 驗證流程分支；六種寬度與鍵盤流程的前一輪檢查已通過。真人服務環境的實際網路狀態仍待驗證。
-- **發布：** run 57 的 verify、block_race 和 deploy 全部成功，公開網站已部署；run 56 首次執行 headless Chrome 回歸測試時因遊戲輪詢計時器未清除而逾時，測試加入 mock 登出清理後已於 run 57 通過。run 48 曾遇到 `github-pages` artifact 讀取失敗，後續 run 49、50、53、54、55、57 均成功。真人登入和後端尚未設定，仍維持停用狀態。詳見 [run 57](https://github.com/310182-sketch/riddle-match/actions/runs/44628380613) 和 [公開網站](https://310182-sketch.github.io/riddle-match/)。
+- **發布：** run 57 與 run 59 的 verify、block_race 和 deploy 全部成功，公開網站已部署；run 56 首次執行 headless Chrome 回歸測試時因遊戲輪詢計時器未清除而逾時，測試加入 mock 登出清理後已於 run 57 通過。run 48 曾遇到 `github-pages` artifact 讀取失敗，後續 run 49、50、53、54、55、57 均成功。真人登入和後端尚未設定，仍維持停用狀態。詳見 [run 57](https://github.com/310182-sketch/riddle-match/actions/runs/44628380613)、[run 59](https://github.com/310182-sketch/riddle-match/actions/runs/44630772481) 和 [公開網站](https://310182-sketch.github.io/riddle-match/)。
 - **安全營運：** 前端及後端草稿已提供同房檢舉、封鎖與解除封鎖、服務端配對／開房限量及隱私告知。此原型沒有人工審查人員或支援聯絡方式；正式公開前須建立案件審查、聯絡和緊急處理流程，不能宣稱檢舉會即時有人處理。
 - **工作區：** 原型位於 `site/`，可直接開啟 `site/index.html` 操作，不需安裝套件或建置。
 - **產品方向：** 遠端 `main` 保留原有猜謎版本；本分支依本計畫製作二選一共同點遊戲，詳見 [knowledge/decision.md](decision.md)。
@@ -126,7 +126,7 @@
 - [x] 將 Deno／PGlite migration 與 Edge Function 回歸測試接入 Pages workflow，驗證完成後才部署，並將 `pages: write`／`id-token: write` 權限限制在部署 job；run 41 已在 GitHub runner 完成驗證及部署。
 - [x] 將 PostgreSQL 16 多連線競態測試加入獨立 CI job，並要求它和既有 verify job 都成功後才部署；run 53、54、55、57 的 verify、`block_race` 與 deploy 均通過。
 - [x] 將配對取消前端競態加入 headless Chrome mock 回歸測試，並放入 Pages workflow 的部署前驗證；確認取消在狀態查詢進行中不會被忽略，且已配對時能透過後續狀態查詢恢復房間；run 57 的 verify、`block_race` 與 deploy 全部通過。
-- [x] 將重新載入恢復進行中房間加入 headless Chrome mock 並接入 Pages workflow；本機 migration 與瀏覽器檢查通過，此次 push 的 GitHub CI 尚待執行。
+- [x] 將重新載入恢復進行中房間加入 headless Chrome mock 並接入 Pages workflow；本機 migration 與瀏覽器檢查通過；run 59 的 verify、block_race 及 deploy 全部成功。
 - [ ] 建立 Supabase 專案與開發／正式環境，啟用 Anonymous Auth，套用並實際驗證 migration。
 - [ ] 啟用 Supabase Manual Linking；設定本機與 GitHub Pages redirect allow list 及 Google／Facebook／X callback。
 - [ ] 完成 RLS、Realtime、RPC 權限和資料驗證；確保玩家只能查看有權存取的房間、答案與紀錄。
