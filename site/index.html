@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="styles.css?v=8">
     <script src="supabase-config.js?v=1" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.js" integrity="sha384-A97u3Qnt9GZHURO9YJZRe7VQgGUeFzcv6I1oIGnUTxQrCxnpQMwR0/G8F2zt9abZ" crossorigin="anonymous" defer></script>
-    <script src="app.js?v=4" defer></script>
+    <script src="app.js?v=5" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -150,14 +150,18 @@
           <div class="history-grid">
             <section class="history-panel" aria-labelledby="history-list-title">
               <div class="history-panel-heading"><h2 id="history-list-title">最近對局</h2><span>90 天</span></div>
-              <div class="history-empty"><span aria-hidden="true">◷</span><b>目前沒有已保存的對局</b><p>完成已連線的真人對局後，這裡會顯示主題、對手、共同題數與相同選擇。</p></div>
+              <div class="history-empty" data-history-empty="list"><span aria-hidden="true">◷</span><b>目前沒有已保存的對局</b><p>完成已連線的真人對局後，這裡會顯示主題、對手、共同題數與相同選擇。</p></div>
+              <div class="history-list hidden" data-history-items aria-label="最近對局清單"></div>
+              <button class="history-more hidden" type="button" data-history-more>載入更早紀錄</button>
             </section>
             <section class="history-panel" aria-labelledby="ranking-title">
               <div class="history-panel-heading"><h2 id="ranking-title">最有默契</h2><span>個人統計</span></div>
-              <div class="history-empty"><span aria-hidden="true">♡</span><b>累積幾場對局再來看看</b><p>和同一位玩家完成至少 3 局後，會依共同答案比例排序，並列出對局數與共同答案數。</p></div>
+              <div class="history-empty" data-history-empty="ranking"><span aria-hidden="true">♡</span><b>累積幾場對局再來看看</b><p>和同一位玩家完成至少 3 局後，會依共同答案比例排序，並列出對局數與共同答案數。</p></div>
+              <div class="ranking-list hidden" data-history-ranking aria-label="默契統計清單"></div>
             </section>
           </div>
-          <p class="workflow-note">目前登入與資料庫尚未連線，頁面不會保存或查詢真實紀錄。</p>
+          <p class="workflow-note" data-history-status role="status" aria-live="polite">登入服務尚未設定；本機示範不會保存或查詢真實紀錄。</p>
+          <button class="history-retry hidden" type="button" data-history-retry>重新載入紀錄</button>
           <button class="primary-button workflow-primary" type="button" data-home><span>回到首頁</span><span class="button-arrow" aria-hidden="true">↗</span></button>
         </section>
 

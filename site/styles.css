@@ -457,6 +457,23 @@ body { font-size: 16px; line-height: 1.55; }
 .history-empty > span { color: #8a9a80; font-size: 23px; }
 .history-empty > b { margin-top: 8px; font-size: 14px; }
 .history-empty > p { max-width: 310px; margin: 7px 0 0; color: #686d62; font-size: 13px; line-height: 1.65; }
+.history-list,.ranking-list { display: flex; flex-direction: column; gap: 9px; padding-top: 12px; }
+.history-entry,.ranking-entry { border: 1px solid #efede6; border-radius: 10px; padding: 12px; background: #fffefa; }
+.history-entry-heading,.ranking-entry-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.history-entry-heading b,.ranking-entry-heading b { color: var(--green-dark); font-size: 13px; }
+.history-entry-heading time,.ranking-entry-heading span { color: #797d71; font-size: 11px; white-space: nowrap; }
+.history-entry-summary,.ranking-entry-summary { margin: 6px 0 0; color: #62665d; font-size: 12px; line-height: 1.55; }
+.history-choice-list { display: grid; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.history-choice-list li { border-radius: 7px; padding: 8px; background: #f7f6f1; color: #62665d; font-size: 11px; line-height: 1.5; }
+.history-choice-list li b { display: block; margin-top: 2px; color: var(--green-dark); font-size: 12px; }
+.history-delete { min-height: 34px; margin-top: 10px; border: 1px solid #e6e1d7; border-radius: 7px; padding: 0 10px; background: transparent; color: #74766d; font-size: 11px; cursor: pointer; }
+.history-delete:not(:disabled):hover { border-color: #d9c2b8; color: #8b4f3b; background: #fbf5f1; }
+.history-delete:disabled { opacity: .55; }
+.history-more { min-height: 40px; width: 100%; margin-top: 10px; border: 1px solid #e6e1d7; border-radius: 8px; background: transparent; color: var(--green-dark); font-size: 12px; font-weight: 700; cursor: pointer; }
+.history-more:hover { background: var(--green-soft); }
+.history-more:disabled { opacity: .55; cursor: default; }
+.history-retry { min-height: 36px; margin-top: 7px; border: 0; padding: 0 8px; background: transparent; color: var(--green-dark); font-size: 12px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.history-retry:hover { color: #526d43; }
 .history-view > .workflow-note { margin-top: 17px; }
 
 /* Optional Supabase Auth */

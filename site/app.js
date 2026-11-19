@@ -41,7 +41,12 @@
     answers: [],
     matchTimer: null,
     shareFile: null,
-    shareCardVersion: 0
+    shareCardVersion: 0,
+    historyItems: [],
+    historyCursor: null,
+    historyHasMore: false,
+    historyBusy: false,
+    historyRequestId: 0
   };
 
   const authState = {
@@ -443,6 +448,7 @@
     instagram: "Instagram",
     threads: "Threads"
   };
+  const topicLabels = { travel: "旅行", music: "音樂", daily: "日常", food: "飲食" };
 
   function configuredAuthProvider(name) {
     const providers = authState.config && authState.config.providers;
@@ -537,8 +543,26 @@
         }
       });
       const { data: listener } = authState.client.auth.onAuthStateChange((_event, session) => {
+        const previousUserId = authState.session?.user?.id || null;
+        const nextUserId = session?.user?.id || null;
         authState.session = session;
         authState.notice = "";
+        if (previousUserId !== nextUserId) {
+          clearHistoryContent();
+          if (historyViewIsVisible()) {
+            const status = $("[data-history-status]");
+            if (nextUserId) {
+              status.textContent = "帳號已更新，正在載入對局紀錄…";
+              window.setTimeout(() => {
+                if (authState.session?.user?.id === nextUserId && historyViewIsVisible()) {
+                  loadMyMatchHistory();
+                }
+              }, 0);
+            } else {
+              status.textContent = "請先登入，才能查詢本人最近 90 天的對局紀錄。";
+            }
+          }
+        }
         refreshAuthPanel();
       });
       authState.subscription = listener.subscription;
@@ -617,11 +641,225 @@
     }
   }
 
+  function showHistoryEmptyState(type, show) {
+    $(`[data-history-empty="${type}"]`).classList.toggle("hidden", !show);
+  }
+
+  function renderHistoryItems(items) {
+    const container = $("[data-history-items]");
+    container.replaceChildren();
+    const hasItems = items.length > 0;
+    showHistoryEmptyState("list", !hasItems);
+    container.classList.toggle("hidden", !hasItems);
+
+    items.forEach((item) => {
+      const card = document.createElement("article");
+      card.className = "history-entry";
+      const heading = document.createElement("div");
+      heading.className = "history-entry-heading";
+      const topic = document.createElement("b");
+      topic.textContent = topicLabels[item.topic_key] || "共同點對局";
+      const completedAt = document.createElement("time");
+      const date = new Date(item.completed_at);
+      completedAt.dateTime = item.completed_at;
+      completedAt.textContent = Number.isNaN(date.getTime()) ? "日期不明" : date.toLocaleDateString("zh-TW");
+      heading.append(topic, completedAt);
+
+      const summary = document.createElement("p");
+      summary.className = "history-entry-summary";
+      summary.textContent = `與 ${item.opponent_nickname || "已刪除玩家"} 相同 ${item.common_answer_count}/${item.question_count} 題`;
+      card.append(heading, summary);
+
+      const choices = Array.isArray(item.common_choices) ? item.common_choices : [];
+      if (choices.length) {
+        const list = document.createElement("ul");
+        list.className = "history-choice-list";
+        choices.forEach((choice) => {
+          const row = document.createElement("li");
+          const question = document.createElement("span");
+          const answer = document.createElement("b");
+          question.textContent = choice.prompt || `第 ${choice.question_no} 題`;
+          answer.textContent = choice.choice || "共同選擇";
+          row.append(question, answer);
+          list.append(row);
+        });
+        card.append(list);
+      }
+
+      const remove = document.createElement("button");
+      remove.className = "history-delete";
+      remove.type = "button";
+      remove.dataset.historyDelete = item.id;
+      remove.textContent = "刪除這筆紀錄";
+      remove.setAttribute("aria-label", `刪除與 ${item.opponent_nickname || "已刪除玩家"} 的對局紀錄`);
+      card.append(remove);
+      container.append(card);
+    });
+  }
+
+  function renderHistoryRanking(players) {
+    const container = $("[data-history-ranking]");
+    container.replaceChildren();
+    const hasPlayers = players.length > 0;
+    showHistoryEmptyState("ranking", !hasPlayers);
+    container.classList.toggle("hidden", !hasPlayers);
+
+    players.forEach((player) => {
+      const card = document.createElement("article");
+      card.className = "ranking-entry";
+      const heading = document.createElement("div");
+      heading.className = "ranking-entry-heading";
+      const opponent = document.createElement("b");
+      opponent.textContent = player.opponent_nickname || "已刪除玩家";
+      const ratio = document.createElement("span");
+      ratio.textContent = `${Math.round(Number(player.commonality_ratio) * 100)}%`;
+      heading.append(opponent, ratio);
+      const summary = document.createElement("p");
+      summary.className = "ranking-entry-summary";
+      summary.textContent = `${player.match_count} 局中有 ${player.common_answer_count}/${player.question_count} 題相同`;
+      card.append(heading, summary);
+      container.append(card);
+    });
+  }
+
+  function clearHistoryContent() {
+    state.historyRequestId += 1;
+    state.historyBusy = false;
+    state.historyItems = [];
+    state.historyCursor = null;
+    state.historyHasMore = false;
+    $("[data-history-items]").replaceChildren();
+    $("[data-history-ranking]").replaceChildren();
+    $("[data-history-items]").classList.add("hidden");
+    $("[data-history-ranking]").classList.add("hidden");
+    $("[data-history-more]").classList.add("hidden");
+    $("[data-history-more]").disabled = false;
+    $("[data-history-retry]").classList.add("hidden");
+    showHistoryEmptyState("list", false);
+    showHistoryEmptyState("ranking", false);
+  }
+
+  function historyViewIsVisible() {
+    return !$(".history-view").classList.contains("hidden");
+  }
+
+  async function loadMyMatchHistory(append = false) {
+    const status = $("[data-history-status]");
+    const moreButton = $("[data-history-more]");
+    const retryButton = $("[data-history-retry]");
+    if (state.historyBusy) return { ok: false, requestId: state.historyRequestId };
+    if (!authState.client) {
+      clearHistoryContent();
+      status.textContent = "登入服務尚未設定；本機示範不會保存或查詢真實紀錄。";
+      showHistoryEmptyState("list", true);
+      showHistoryEmptyState("ranking", true);
+      return { ok: false, requestId: state.historyRequestId };
+    }
+    if (!authState.session) {
+      clearHistoryContent();
+      status.textContent = "請先登入，才能查詢本人最近 90 天的對局紀錄。";
+      return { ok: false, requestId: state.historyRequestId };
+    }
+
+    state.historyBusy = true;
+    const requestId = ++state.historyRequestId;
+    const userId = authState.session.user.id;
+    moreButton.disabled = true;
+    retryButton.classList.add("hidden");
+    status.textContent = append ? "正在載入更早的對局紀錄…" : "正在載入你的對局紀錄…";
+    try {
+      const cursor = append ? state.historyCursor : null;
+      const historyPromise = authState.client.rpc("get_my_match_history", {
+        p_limit: 50,
+        p_before_at: cursor?.completed_at || null,
+        p_before_id: cursor?.id || null
+      });
+      const rankingPromise = append
+        ? Promise.resolve({ data: null, error: null })
+        : authState.client.rpc("get_my_commonality_ranking");
+      const [historyResponse, rankingResponse] = await Promise.all([historyPromise, rankingPromise]);
+      if (requestId !== state.historyRequestId || authState.session?.user?.id !== userId) {
+        return { ok: false, requestId };
+      }
+      if (historyResponse.error) throw historyResponse.error;
+      if (rankingResponse.error) throw rankingResponse.error;
+      const history = historyResponse.data || {};
+      const pageItems = Array.isArray(history.items) ? history.items : [];
+      state.historyItems = append ? state.historyItems.concat(pageItems) : pageItems;
+      if (pageItems.length) state.historyCursor = pageItems[pageItems.length - 1];
+      state.historyHasMore = pageItems.length === 50;
+      renderHistoryItems(state.historyItems);
+      if (!append) {
+        const ranking = rankingResponse.data || {};
+        renderHistoryRanking(Array.isArray(ranking.players) ? ranking.players : []);
+      }
+      moreButton.classList.toggle("hidden", !state.historyHasMore);
+      status.textContent = "僅顯示本人最近 90 天的紀錄；你可以逐筆刪除。";
+      return { ok: true, requestId };
+    } catch (error) {
+      if (requestId !== state.historyRequestId || authState.session?.user?.id !== userId) {
+        return { ok: false, requestId };
+      }
+      console.warn("Could not load player history", error);
+      if (!append) clearHistoryContent();
+      status.textContent = "紀錄暫時無法載入，請確認登入狀態及 Supabase 歷史 RPC 設定後重試。";
+      retryButton.classList.remove("hidden");
+      return { ok: false, requestId: state.historyRequestId };
+    } finally {
+      if (requestId === state.historyRequestId) {
+        state.historyBusy = false;
+        moreButton.disabled = false;
+      }
+    }
+  }
+
+  async function deleteMyMatchHistory(button) {
+    if (!authState.client || !authState.session || button.disabled || state.historyBusy) return;
+    const client = authState.client;
+    const userId = authState.session.user.id;
+    const requestId = ++state.historyRequestId;
+    const moreButton = $("[data-history-more]");
+    $$("[data-history-delete]").forEach((deleteButton) => { deleteButton.disabled = true; });
+    moreButton.disabled = true;
+    state.historyBusy = true;
+    const status = $("[data-history-status]");
+    status.textContent = "正在刪除這筆紀錄…";
+    let deleted = false;
+    try {
+      const { data, error } = await client.rpc("delete_my_match_history", {
+        p_history_id: button.dataset.historyDelete
+      });
+      if (error) throw error;
+      deleted = data === true;
+    } catch (error) {
+      if (requestId !== state.historyRequestId || authState.session?.user?.id !== userId) return;
+      console.warn("Could not delete player history", error);
+      status.textContent = "刪除沒有完成，請稍後重試。";
+      return;
+    } finally {
+      if (requestId === state.historyRequestId) {
+        state.historyBusy = false;
+        $$("[data-history-delete]").forEach((deleteButton) => { deleteButton.disabled = false; });
+        moreButton.disabled = false;
+      }
+    }
+    if (requestId !== state.historyRequestId || authState.session?.user?.id !== userId) return;
+    const refresh = await loadMyMatchHistory();
+    if (!refresh.ok || refresh.requestId !== state.historyRequestId || authState.session?.user?.id !== userId) return;
+    status.textContent = deleted ? "紀錄已刪除。" : "這筆紀錄已不存在或不屬於你的帳號。";
+  }
+
   $("[data-auth-anonymous]").addEventListener("click", signInAnonymously);
   $("[data-auth-signout]").addEventListener("click", signOut);
   $$("[data-auth-provider]").forEach((button) => {
     button.addEventListener("click", () => signInOrLinkProvider(button.dataset.authProvider));
   });
+  $("[data-history-items]").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-history-delete]");
+    if (button) deleteMyMatchHistory(button);
+  });
+  $("[data-history-more]").addEventListener("click", () => loadMyMatchHistory(true));
+  $("[data-history-retry]").addEventListener("click", () => loadMyMatchHistory());
 
   $$("[data-topic-choice]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -662,7 +900,10 @@
   $("[data-copy-room-code]").addEventListener("click", copyDemoInviteCode);
   $("[data-room-demo]").addEventListener("click", () => startMatching("demo"));
   $("[data-use-demo]").addEventListener("click", startDemoGame);
-  $("[data-open-history]").addEventListener("click", () => showView("history", true));
+  $("[data-open-history]").addEventListener("click", () => {
+    showView("history", true);
+    loadMyMatchHistory();
+  });
 
   $$(".answer-option").forEach((button) => {
     button.addEventListener("click", () => {
