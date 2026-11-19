@@ -6,7 +6,7 @@
 
 ## 目前狀態
 
-- 階段：前端雛形與部署設定已完成，GitHub repository 和 Pages 發布待處理。
+- 階段：前端雛形與部署設定已完成；已確認使用 GitHub Pages，repository 建立與首次發布待處理。
 - 已完成可在單一瀏覽器互動的展示原型；配對對象、問答回覆與答案判定目前由示範流程模擬。
 - 尚未連接真人即時配對、跨訪客聊天室或共享遊戲狀態服務。
 - GitHub Actions Pages workflow 已加入專案；repository 尚未建立，網站尚未發布。
@@ -49,6 +49,7 @@
 - [ ] 建立 GitHub repository 並推送網站原始碼。
 - [ ] 設定 GitHub Pages 使用 GitHub Actions，完成首次部署並確認網址。
 - [ ] 為 GitHub CLI 或 Git Credential Manager 建立安全的本機授權方式。
+- [ ] 部署成功後開啟 GitHub 專案頁與公開網站。
 - [ ] 加入檢舉、封鎖或其他基本玩家安全機制。
 - [ ] 真人配對版本完成後，確認兩位不同訪客可以完成一局遊戲。
 

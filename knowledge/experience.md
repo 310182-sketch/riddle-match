@@ -29,3 +29,9 @@
 - **經驗：** GitHub Pages 發布的前端內容是公開可讀的，不可把 Personal Access Token、服務角色金鑰或其他伺服器祕密放進 HTML、JavaScript、建置產物或公開 repository。
 - **適用範圍：** GitHub Pages 或其他靜態主機搭配第三方後端服務的網站。
 - **本專案做法：** 尚未加入任何服務金鑰；選定即時後端後，前端只使用允許公開的用戶端設定，並由後端存取規則保護房間和資料。
+
+## GitHub 網頁登入與本機 Git 授權
+
+- **經驗：** 在瀏覽器登入 GitHub 不會自動為 Git 命令列設定 push 權限；Windows 上可使用 Git Credential Manager 完成一次 OAuth 授權，避免把 Personal Access Token 貼進聊天或原始碼。
+- **適用範圍：** 使用 Git for Windows 從本機建立遠端 repository、push commit 或查詢 GitHub Actions 時。
+- **本專案做法：** Git Credential Manager 已安裝但目前未授權；完成帳號授權後再建立遠端 repository 並推送。

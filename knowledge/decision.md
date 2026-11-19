@@ -20,12 +20,13 @@
 
 ## GitHub repository 發布設定
 
+- **狀態：** 已確認使用 GitHub Pages；repository 建立與首次發布仍待完成。
 - **建議：** 使用 `310182-sketch/riddle-match`，repository 設為公開，預設分支使用 `main`，並以 GitHub Actions 發布 Pages。
 - **原因：** repository slug 易辨識；公開 repository 可直接使用免費 GitHub Pages，且不必另行管理付費方案。
 - **狀態：** 等待建立 repository 與首次發布。
 
 ## GitHub 認證方式
 
-- **狀態：** 發布阻塞；工作環境沒有 GitHub CLI、Git credential helper 或已授權的 Git remote。
+- **狀態：** 發布待授權；工作環境沒有 GitHub CLI，Git Credential Manager 雖已安裝但尚未設定或授權，且尚無 GitHub remote。
 - **建議：** 優先使用 GitHub CLI 或 Git Credential Manager 的官方登入流程完成授權，再建立 repository 和推送；不要在聊天中傳送 Personal Access Token。
 - **適用範圍：** 需要從本機推送至 GitHub、建立 repository 或檢查 Actions 執行狀態時。
