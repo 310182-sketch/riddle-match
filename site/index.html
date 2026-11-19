@@ -10,10 +10,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=8">
+    <link rel="stylesheet" href="styles.css?v=9">
     <script src="supabase-config.js?v=1" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.js" integrity="sha384-A97u3Qnt9GZHURO9YJZRe7VQgGUeFzcv6I1oIGnUTxQrCxnpQMwR0/G8F2zt9abZ" crossorigin="anonymous" defer></script>
-    <script src="app.js?v=6" defer></script>
+    <script src="app.js?v=7" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -162,6 +162,17 @@
               <div class="ranking-list hidden" data-history-ranking aria-label="默契統計清單"></div>
             </section>
           </div>
+          <section class="blocked-players-panel" aria-labelledby="blocked-players-title">
+            <div class="history-panel-heading">
+              <h2 id="blocked-players-title">已封鎖的玩家</h2>
+              <span>只有你能查看</span>
+            </div>
+            <p class="blocked-players-help">封鎖會避免再次隨機配對，也會阻止互相加入邀請房；你可以隨時解除。</p>
+            <p class="blocked-players-empty" data-blocked-empty>尚未封鎖任何玩家。</p>
+            <div class="blocked-players-list hidden" data-blocked-players aria-label="已封鎖的玩家清單"></div>
+            <button class="history-retry hidden" type="button" data-blocked-retry>重新載入封鎖清單</button>
+            <p class="blocked-players-status" data-block-status role="status" aria-live="polite">登入後可管理封鎖清單。</p>
+          </section>
           <p class="workflow-note" data-history-status role="status" aria-live="polite">登入服務尚未設定；本機示範不會保存或查詢真實紀錄。</p>
           <button class="history-retry hidden" type="button" data-history-retry>重新載入紀錄</button>
           <button class="primary-button workflow-primary" type="button" data-home><span>回到首頁</span><span class="button-arrow" aria-hidden="true">↗</span></button>
@@ -215,6 +226,13 @@
                 <ol><li class="active-step"><span>01</span><b>選一個最像你的答案</b></li><li><span>02</span><b>等對方也完成作答</b></li><li><span>03</span><b>看看你們是否有共鳴</b></li></ol>
               </div>
               <p class="safety-note"><span aria-hidden="true">♡</span> 不需要分享個人聯絡方式，也能找到共同點。</p>
+              <div class="player-safety-actions hidden" data-live-safety-actions>
+                <p>遇到不適當行為？</p>
+                <div>
+                  <button type="button" data-open-report>檢舉玩家</button>
+                  <button type="button" data-block-opponent>封鎖玩家</button>
+                </div>
+              </div>
               <p class="demo-disclaimer" data-demo-disclaimer><span class="pulse-dot" aria-hidden="true"></span> 示範玩家與答案由本機範例資料模擬，尚未連接真人配對。</p>
             </aside>
           </div>
@@ -235,6 +253,11 @@
             <button class="primary-button" type="button" data-share-result disabled><span>分享結果</span><span class="button-arrow" aria-hidden="true">↗</span></button>
             <button class="secondary-button" type="button" data-download-result disabled>下載 PNG</button>
           </div>
+          <div class="result-safety-actions hidden" data-result-safety-actions>
+            <span>需要安全處理？</span>
+            <button type="button" data-open-report>檢舉玩家</button>
+            <button type="button" data-block-opponent>封鎖玩家</button>
+          </div>
           <div class="result-actions result-navigation-actions">
             <button class="primary-button" type="button" data-play-again><span>再玩一局</span><span class="button-arrow" aria-hidden="true">↗</span></button>
             <button class="secondary-button" type="button" data-home>回到首頁</button>
@@ -243,7 +266,7 @@
         </section>
       </main>
 
-      <footer class="site-footer"><span>同頻 © 2026</span><span class="footer-message">一個選擇，發現一點相同 <span aria-hidden="true">✦</span></span><button type="button" data-show-help>遊戲說明</button></footer>
+      <footer class="site-footer"><span>同頻 © 2026</span><span class="footer-message">一個選擇，發現一點相同 <span aria-hidden="true">✦</span></span><div><button type="button" data-show-privacy>隱私與安全</button><button type="button" data-show-help>遊戲說明</button></div></footer>
     </div>
 
     <dialog class="modal" data-modal aria-labelledby="modal-title">
@@ -253,6 +276,44 @@
       <h2 id="modal-title">用兩個選項，找到一點共鳴</h2>
       <p class="modal-copy">選擇主題後，可以建立邀請房、輸入代碼或預覽隨機配對。完成五題後會揭曉共同選擇。設定 Supabase 並登入後可進行真人邀請房對局、查詢個人歷史；未連線時則只會使用本機示範資料。</p>
       <button class="primary-button modal-action" type="button" data-close-modal>知道了</button>
+    </dialog>
+    <dialog class="modal privacy-modal" data-privacy-modal aria-labelledby="privacy-title">
+      <button class="modal-close" type="button" data-close-privacy aria-label="關閉隱私與安全說明">×</button>
+      <p class="eyebrow centered-eyebrow">隱私與安全</p>
+      <h2 id="privacy-title">只保存遊戲需要的資料</h2>
+      <p>本機示範只在你的瀏覽器操作，不會送出或保存暱稱、答案或對局。</p>
+      <ul>
+        <li>真人服務會處理帳號識別碼、最多 12 字的暱稱、主題、房間狀態與作答，以完成配對和揭曉。</li>
+        <li>房間、配對票券與原始答案在對局結束或逾期後最多保留 24 小時；你自己的歷史摘要保存 90 天，可在歷史頁逐筆刪除。</li>
+        <li>封鎖清單只有你能查閱，會保留到你解除封鎖或刪除帳號；封鎖會阻止再次隨機配對及互相加入邀請房。</li>
+        <li>檢舉只記錄房間、類別及你填寫的說明，不保存答案；案件最多保存 180 天。請勿在說明中填入聯絡方式或他人的敏感資料。</li>
+        <li>登入與資料儲存由 Supabase 提供。社群登入可能將平台提供的帳號識別或 email 存在 Supabase Auth；本遊戲不會公開顯示 email 或登入 token。</li>
+      </ul>
+      <p class="privacy-operations-note">目前原型尚未配置人工審查人員，檢舉不代表即時有人處理。遇到不適狀況請先離開對局並封鎖對方；正式公開服務前會補上審查聯絡方式與處理流程。</p>
+      <button class="primary-button modal-action" type="button" data-close-privacy>知道了</button>
+    </dialog>
+    <dialog class="modal report-modal" data-report-modal aria-labelledby="report-title">
+      <button class="modal-close" type="button" data-close-report aria-label="關閉檢舉表單">×</button>
+      <p class="eyebrow centered-eyebrow">玩家安全</p>
+      <h2 id="report-title">檢舉這位玩家</h2>
+      <p class="modal-copy">選擇最符合的原因。案件只供服務端審查，最多保存 180 天；目前原型沒有即時人工審查。</p>
+      <form data-report-form>
+        <label class="field-label" for="report-category">檢舉原因</label>
+        <select id="report-category" class="text-input" name="category" required>
+          <option value="harassment">騷擾或威脅</option>
+          <option value="hate">仇恨或歧視內容</option>
+          <option value="sexual_content">色情或不當內容</option>
+          <option value="spam">垃圾或惡意行為</option>
+          <option value="other">其他</option>
+        </select>
+        <label class="field-label" for="report-details">補充說明 <span>選填，最多 500 字</span></label>
+        <textarea class="text-input report-details" id="report-details" name="details" maxlength="500" rows="4" placeholder="請描述與本局有關的情況；不要填寫聯絡方式或敏感個資。"></textarea>
+        <p class="report-status" data-report-status role="status" aria-live="polite"></p>
+        <div class="report-actions">
+          <button class="primary-button" type="submit" data-report-submit>送出檢舉</button>
+          <button class="secondary-button" type="button" data-close-report>取消</button>
+        </div>
+      </form>
     </dialog>
     <div class="toast" data-toast role="status" aria-live="polite"></div>
   </body>

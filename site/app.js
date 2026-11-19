@@ -68,7 +68,16 @@
     gameChoice: null,
     gameBusy: false,
     gameResultLoading: false,
-    gameResultSyncId: null
+    gameResultSyncId: null,
+    moderationRoomId: null,
+    moderationUserId: null,
+    moderationBusy: false,
+    moderationRequestId: 0,
+    reportSubmitted: false,
+    opponentBlocked: false,
+    blockedPlayers: [],
+    blockedPlayersBusy: false,
+    blockedPlayersRequestId: 0
   };
 
   const authState = {
@@ -85,6 +94,8 @@
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const views = $$("[data-view]");
   const modal = $("[data-modal]");
+  const privacyModal = $("[data-privacy-modal]");
+  const reportModal = $("[data-report-modal]");
   const toast = $("[data-toast]");
 
   function showView(name, moveFocus = false) {
@@ -123,7 +134,14 @@
     state.shareCardVersion += 1;
     state.shareFile = null;
     stopLiveGameSync();
+    state.moderationRequestId += 1;
+    if (reportModal.open) reportModal.close();
     state.liveRoom = null;
+    state.moderationRoomId = null;
+    state.moderationUserId = null;
+    state.moderationBusy = false;
+    state.reportSubmitted = false;
+    state.opponentBlocked = false;
     state.gameQuestions = null;
     state.gameChoice = null;
     state.matchMode = mode;
@@ -158,6 +176,7 @@
     $("[data-match-progress]").classList.toggle("is-preview", !liveQueue && !demoMode);
     $("[data-use-demo]").classList.toggle("hidden", demoMode);
     $("[data-retry-match]").classList.add("hidden");
+    refreshSafetyActions();
     $("[data-cancel]").disabled = liveQueue;
     $("[data-cancel]").textContent = liveQueue ? "正在連接配對佇列…" : "返回首頁";
     showView("matching", true);
@@ -657,6 +676,8 @@
       state.answers = answers;
       state.topic = topicLabels[data.topic_key] || state.topic;
       state.matchMode = "live_completed";
+      state.moderationRoomId = roomId;
+      state.moderationUserId = userId;
       stopLiveGameSync();
       state.liveRoom = null;
       renderResults();
@@ -751,6 +772,10 @@
     stopRoomStatusWatch();
     stopLiveGameSync();
     state.liveRoom = room;
+    state.moderationRoomId = room.roomId;
+    state.moderationUserId = room.userId;
+    state.moderationBusy = false;
+    state.opponentBlocked = false;
     state.matchMode = "live";
     state.topic = topicLabels[room.topicKey] || state.topic;
     state.questionIndex = 0;
@@ -760,6 +785,7 @@
     state.gameChoice = null;
     state.gameBusy = false;
     state.nickname = getPlayerNickname();
+    refreshSafetyActions();
     const syncId = state.gameSyncId;
     const userId = room.userId;
     showView("game", true);
@@ -1118,6 +1144,7 @@
     $("[data-empty-result]").classList.toggle("hidden", matchedIndexes.length > 0);
     list.classList.toggle("hidden", matchedIndexes.length === 0);
     showView("results", true);
+    refreshSafetyActions();
     prepareShareCard(questions, matchedIndexes);
   }
 
@@ -1423,6 +1450,15 @@
         authState.session = session;
         authState.notice = "";
         if (previousUserId !== nextUserId) {
+          state.moderationRequestId += 1;
+          state.moderationRoomId = null;
+          state.moderationUserId = null;
+          state.moderationBusy = false;
+          state.reportSubmitted = false;
+          state.opponentBlocked = false;
+          if (reportModal.open) reportModal.close();
+          refreshSafetyActions();
+          clearBlockedPlayers();
           if (state.matchmaking && state.matchmaking.userId !== nextUserId) {
             stopMatchmakingWatch();
             state.matchmaking = null;
@@ -1454,6 +1490,7 @@
               window.setTimeout(() => {
                 if (authState.session?.user?.id === nextUserId && historyViewIsVisible()) {
                   loadMyMatchHistory();
+                  loadMyBlockedPlayers();
                 }
               }, 0);
             } else {
@@ -1620,6 +1657,225 @@
     });
   }
 
+  function hasCurrentModerationRoom() {
+    return Boolean(
+      authState.client &&
+      state.moderationRoomId &&
+      state.moderationUserId &&
+      authState.session?.user?.id === state.moderationUserId
+    );
+  }
+
+  function refreshSafetyActions() {
+    const canModerate = hasCurrentModerationRoom();
+    const showInGame = canModerate && state.matchMode === "live";
+    const showInResults = canModerate && state.matchMode === "live_completed";
+    $("[data-live-safety-actions]").classList.toggle("hidden", !showInGame);
+    $("[data-result-safety-actions]").classList.toggle("hidden", !showInResults);
+    $$('[data-block-opponent]').forEach((button) => {
+      button.disabled = !canModerate || state.moderationBusy || state.opponentBlocked;
+      button.textContent = state.opponentBlocked ? "已封鎖" : "封鎖玩家";
+    });
+    $$('[data-open-report]').forEach((button) => {
+      button.disabled = !canModerate || state.moderationBusy;
+    });
+    $("[data-report-submit]").disabled = !canModerate || state.moderationBusy || state.reportSubmitted;
+  }
+
+  function openPlayerReport() {
+    if (!hasCurrentModerationRoom()) {
+      announce("請先登入並使用已連線的真人對局功能。");
+      return;
+    }
+    const form = $("[data-report-form]");
+    form.reset();
+    state.reportSubmitted = false;
+    $("[data-report-status]").textContent = "";
+    $("[data-report-submit]").textContent = "送出檢舉";
+    refreshSafetyActions();
+    reportModal.showModal();
+    $("#report-category").focus({ preventScroll: true });
+  }
+
+  async function submitPlayerReport(event) {
+    event.preventDefault();
+    if (!hasCurrentModerationRoom() || state.moderationBusy || state.reportSubmitted) return;
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const userId = state.moderationUserId;
+    const roomId = state.moderationRoomId;
+    const requestId = ++state.moderationRequestId;
+    state.moderationBusy = true;
+    $("[data-report-status]").textContent = "正在安全地送出檢舉…";
+    $("[data-report-submit]").textContent = "正在送出…";
+    refreshSafetyActions();
+    try {
+      const { data, error } = await authState.client.rpc("submit_player_report", {
+        p_room_id: roomId,
+        p_category: formData.get("category"),
+        p_details: String(formData.get("details") || "").trim()
+      });
+      if (requestId !== state.moderationRequestId || authState.session?.user?.id !== userId) return;
+      if (error) throw error;
+      state.reportSubmitted = true;
+      $("[data-report-submit]").textContent = "已收到";
+      $("[data-report-status]").textContent = data?.status === "already_submitted"
+        ? "這局已收到你的檢舉。此原型沒有即時人工審查；需要立即處理時，請離開對局並封鎖玩家。"
+        : "檢舉已保存，最多保留 180 天。此原型沒有即時人工審查；需要立即處理時，請離開對局並封鎖玩家。";
+    } catch (error) {
+      if (requestId !== state.moderationRequestId || authState.session?.user?.id !== userId) return;
+      console.warn("Could not submit player report", error);
+      $("[data-report-status]").textContent = "檢舉沒有送出，請確認連線後重試。";
+      $("[data-report-submit]").textContent = "重試送出";
+    } finally {
+      if (requestId === state.moderationRequestId) {
+        state.moderationBusy = false;
+        refreshSafetyActions();
+      }
+    }
+  }
+
+  async function blockRoomOpponent() {
+    if (!hasCurrentModerationRoom() || state.moderationBusy || state.opponentBlocked) return;
+    const confirmed = window.confirm(
+      "封鎖後，你們不會再次隨機配對，也不能互相加入新的邀請房。封鎖可在歷史頁解除。要封鎖這位玩家嗎？"
+    );
+    if (!confirmed) return;
+    const userId = state.moderationUserId;
+    const roomId = state.moderationRoomId;
+    const requestId = ++state.moderationRequestId;
+    state.moderationBusy = true;
+    refreshSafetyActions();
+    try {
+      const { error } = await authState.client.rpc("block_room_opponent", { p_room_id: roomId });
+      if (requestId !== state.moderationRequestId || authState.session?.user?.id !== userId) return;
+      if (error) throw error;
+      state.opponentBlocked = true;
+      announce("已封鎖對方；你可以在歷史頁解除封鎖。");
+      if (historyViewIsVisible()) loadMyBlockedPlayers();
+    } catch (error) {
+      if (requestId !== state.moderationRequestId || authState.session?.user?.id !== userId) return;
+      console.warn("Could not block player", error);
+      announce("封鎖沒有完成，請確認連線後重試。");
+    } finally {
+      if (requestId === state.moderationRequestId) {
+        state.moderationBusy = false;
+        refreshSafetyActions();
+      }
+    }
+  }
+
+  function clearBlockedPlayers() {
+    state.blockedPlayersRequestId += 1;
+    state.blockedPlayersBusy = false;
+    state.blockedPlayers = [];
+    $("[data-blocked-players]").replaceChildren();
+    $("[data-blocked-players]").classList.add("hidden");
+    $("[data-blocked-empty]").classList.add("hidden");
+    $("[data-blocked-retry]").classList.add("hidden");
+    $("[data-block-status]").textContent = "登入後可管理封鎖清單。";
+  }
+
+  function renderBlockedPlayers(players) {
+    const list = $("[data-blocked-players]");
+    list.replaceChildren();
+    const hasPlayers = players.length > 0;
+    $("[data-blocked-empty]").classList.toggle("hidden", hasPlayers);
+    list.classList.toggle("hidden", !hasPlayers);
+    players.forEach((player) => {
+      const row = document.createElement("div");
+      row.className = "blocked-player-row";
+      const label = document.createElement("div");
+      const nickname = document.createElement("b");
+      nickname.textContent = player.nickname || "玩家";
+      const date = document.createElement("small");
+      const blockedAt = new Date(player.blocked_at);
+      date.textContent = Number.isNaN(blockedAt.getTime())
+        ? "已封鎖"
+        : `封鎖於 ${blockedAt.toLocaleDateString("zh-TW")}`;
+      label.append(nickname, date);
+      const unblock = document.createElement("button");
+      unblock.type = "button";
+      unblock.dataset.unblockPlayer = player.user_id;
+      unblock.textContent = "解除封鎖";
+      unblock.setAttribute("aria-label", `解除封鎖 ${player.nickname || "玩家"}`);
+      unblock.disabled = state.blockedPlayersBusy;
+      row.append(label, unblock);
+      list.append(row);
+    });
+  }
+
+  async function loadMyBlockedPlayers() {
+    const status = $("[data-block-status]");
+    const userId = authState.session?.user?.id;
+    if (!authState.client || !userId) {
+      clearBlockedPlayers();
+      status.textContent = "登入後可管理封鎖清單。";
+      return;
+    }
+    if (state.blockedPlayersBusy) return;
+    const requestId = ++state.blockedPlayersRequestId;
+    state.blockedPlayersBusy = true;
+    renderBlockedPlayers(state.blockedPlayers);
+    if (!state.blockedPlayers.length) $("[data-blocked-empty]").classList.add("hidden");
+    $("[data-blocked-retry]").classList.add("hidden");
+    status.textContent = "正在載入封鎖清單…";
+    try {
+      const { data, error } = await authState.client.rpc("get_my_blocked_players");
+      if (requestId !== state.blockedPlayersRequestId || authState.session?.user?.id !== userId) return;
+      if (error) throw error;
+      state.blockedPlayers = Array.isArray(data?.players) ? data.players : [];
+      renderBlockedPlayers(state.blockedPlayers);
+      status.textContent = state.blockedPlayers.length
+        ? "封鎖清單只有你能查看。"
+        : "沒有已封鎖的玩家。";
+    } catch (error) {
+      if (requestId !== state.blockedPlayersRequestId || authState.session?.user?.id !== userId) return;
+      console.warn("Could not load blocked players", error);
+      status.textContent = "封鎖清單暫時無法載入。";
+      $("[data-blocked-retry]").classList.remove("hidden");
+    } finally {
+      if (requestId === state.blockedPlayersRequestId) {
+        state.blockedPlayersBusy = false;
+        renderBlockedPlayers(state.blockedPlayers);
+      }
+    }
+  }
+
+  async function unblockPlayer(button) {
+    const userId = authState.session?.user?.id;
+    const blockedUserId = button.dataset.unblockPlayer;
+    if (!authState.client || !userId || !blockedUserId || state.blockedPlayersBusy) return;
+    const player = state.blockedPlayers.find((item) => item.user_id === blockedUserId);
+    if (!window.confirm(`解除對 ${player?.nickname || "這位玩家"} 的封鎖？`)) return;
+    const requestId = ++state.blockedPlayersRequestId;
+    state.blockedPlayersBusy = true;
+    renderBlockedPlayers(state.blockedPlayers);
+    $("[data-block-status]").textContent = "正在解除封鎖…";
+    try {
+      const { error } = await authState.client.rpc("unblock_player", {
+        p_blocked_user_id: blockedUserId
+      });
+      if (requestId !== state.blockedPlayersRequestId || authState.session?.user?.id !== userId) return;
+      if (error) throw error;
+      state.blockedPlayers = state.blockedPlayers.filter((item) => item.user_id !== blockedUserId);
+      renderBlockedPlayers(state.blockedPlayers);
+      $("[data-block-status]").textContent = state.blockedPlayers.length
+        ? "已解除封鎖。之後可能再次配對。"
+        : "已解除封鎖；目前沒有已封鎖的玩家。";
+    } catch (error) {
+      if (requestId !== state.blockedPlayersRequestId || authState.session?.user?.id !== userId) return;
+      console.warn("Could not unblock player", error);
+      $("[data-block-status]").textContent = "解除封鎖沒有完成，請稍後重試。";
+      button.disabled = false;
+    } finally {
+      if (requestId === state.blockedPlayersRequestId) {
+        state.blockedPlayersBusy = false;
+        renderBlockedPlayers(state.blockedPlayers);
+      }
+    }
+  }
+
   function clearHistoryContent() {
     state.historyRequestId += 1;
     state.historyBusy = false;
@@ -1758,6 +2014,17 @@
   });
   $("[data-history-more]").addEventListener("click", () => loadMyMatchHistory(true));
   $("[data-history-retry]").addEventListener("click", () => loadMyMatchHistory());
+  $("[data-blocked-retry]").addEventListener("click", loadMyBlockedPlayers);
+  $("[data-blocked-players]").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-unblock-player]");
+    if (button) unblockPlayer(button);
+  });
+  $("[data-report-form]").addEventListener("submit", submitPlayerReport);
+  $$('[data-open-report]').forEach((button) => button.addEventListener("click", openPlayerReport));
+  $$('[data-block-opponent]').forEach((button) => button.addEventListener("click", blockRoomOpponent));
+  $$('[data-show-privacy]').forEach((button) => button.addEventListener("click", () => privacyModal.showModal()));
+  $$('[data-close-privacy]').forEach((button) => button.addEventListener("click", () => privacyModal.close()));
+  $$('[data-close-report]').forEach((button) => button.addEventListener("click", () => reportModal.close()));
 
   $$("[data-topic-choice]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1802,6 +2069,7 @@
   $("[data-open-history]").addEventListener("click", () => {
     showView("history", true);
     loadMyMatchHistory();
+    loadMyBlockedPlayers();
   });
 
   $$(".answer-option").forEach((button) => {

@@ -6,12 +6,13 @@
 
 - 選擇旅行、音樂、日常或飲食主題，也可以隨機選題。
 - 使用一次性的暱稱進入示範配對，不需要註冊。
-- 預覽隨機配對等待、建立邀請房、輸入房間代碼和歷史統計空狀態；這些介面目前不會連接其他裝置或保存資料。
+- 具備 Supabase Auth client、邀請房、隨機配對、真人雙人答題、歷史查詢和共同點統計的前端接線；有 Supabase 專案設定時走真人 RPC，沒有設定時保留明確標示的本機示範。
+- 真人對局提供檢舉及封鎖入口，歷史頁可管理封鎖清單；隱私說明列出資料用途和保存期限。此原型尚無人工審查人員，檢舉不代表即時有人處理。
 - 完成五題二選一，逐題揭曉雙方答案並查看共同選擇。
 - 匯出 1080×1920 結果分享卡；可呼叫系統分享面板或下載 PNG。Instagram 交接仍需用實機確認。
 - 可在手機與桌面瀏覽器操作。
 
-配對對象和對方答案由瀏覽器內的範例資料模擬；尚未連接真人配對、遊戲紀錄或統計，也不會保存暱稱。畫面會持續標示示範模式。首頁已加入可選的 Supabase Auth 入口；目前尚無專案設定，因此登入按鈕停用，示範遊戲仍可直接使用。
+目前工作區沒有 Supabase 專案 URL／公開 key，因此登入與真人服務入口停用，使用者只能玩本機示範。三份資料庫 migration 已在 PGlite 預檢環境套用，並驗證主要遊戲、安全 RPC、資料存取限制、帳號限量與檢舉保存期限；這不代表 Supabase 線上設定、Realtime、RLS 或跨裝置流程已驗證。
 
 ## Supabase Auth 設定
 
@@ -39,7 +40,7 @@ providers: {
 
 ## 真人配對後端草稿
 
-`supabase/migrations/` 收錄 Supabase PostgreSQL schema 與 RPC，包含隨機配對、12 位邀請代碼、雙人作答同步、玩家各自保存 90 天的對局摘要、共同點排名及房間原始資料 24 小時清除。兩份 migration 已在本機 PGlite 預檢環境套用，並測過邀請房五題流程、歷史排名、隨機配對和基本資料存取限制；這不代表已部署至 Supabase，也不驗證 Supabase Auth、Realtime、pg_cron 或線上 RLS。正式連接前須建立 Supabase 專案、啟用匿名登入、依序套用並驗證 migration、確認 RLS／Realtime／RPC 權限與清理排程，再設定公開用戶端 URL 與 anon key。不要將 service role key 放進靜態網站。
+`supabase/migrations/` 收錄 Supabase PostgreSQL schema 與 RPC，包含隨機配對、12 位邀請代碼、雙人作答同步、玩家各自保存 90 天的對局摘要、共同點排名、封鎖／檢舉及服務端限量；房間、配對票券和原始作答最多保留 24 小時，檢舉保存 180 天。三份 migration 已在本機 PGlite 預檢環境套用；這不代表已部署至 Supabase，也不驗證 Supabase Auth、Realtime、pg_cron 或線上 RLS。正式連接前須建立 Supabase 專案、啟用匿名登入、依序套用並驗證 migration、確認 RLS／Realtime／RPC 權限與清理排程，再設定公開用戶端 URL 與 anon key。不要將 service role key 放進靜態網站。
 
 ## 本機預覽
 
@@ -60,4 +61,6 @@ Repository 的 `.github/workflows/pages.yml` 會將 `site/` 發布至 GitHub Pag
 - 建立 Supabase 專案並填入 `site/supabase-config.js`，啟用 Anonymous Auth，套用並驗證 migration、RLS、Realtime 和資料清除排程；設定 Facebook、Google、X，並依 Meta 審查結果評估 Instagram、Threads custom OAuth。
 - 將前端示範流程接上真人配對 RPC，並用兩個不同裝置走完整局。
 - 在 iOS／Android 實機與 VoiceOver／TalkBack 檢查無障礙操作，收集玩家回饋。
-- 真人 MVP 上線前完成檢舉、封鎖、離線處理及匿名帳號濫用風險規劃。
+- 建立人工檢舉審查、玩家聯絡及緊急升級流程；完成前不得宣稱檢舉有人即時處理。
+- 在正式 Supabase 專案和兩部不同裝置驗證 Auth、migration、RLS、Realtime、清理排程、封鎖及檢舉。
+- 依公開服務地區覆核隱私告知與資料保存政策，並做行動裝置及讀屏檢查。
