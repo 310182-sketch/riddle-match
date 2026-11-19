@@ -82,7 +82,7 @@
 
 - **經驗：** GitHub Actions 可以因 push 正常觸發，仍在部署步驟開始前被環境保護規則拒絕。此時先讀取 Actions check-run annotations，確認分支是否列在部署環境的允許清單，再判斷是否要修改 workflow。
 - **適用範圍：** 透過 GitHub Pages environment 或其他有分支保護規則的 GitHub Actions 部署。
-- **本專案做法：** codex/commonality-quiz-prototype 的 workflow 已觸發，但 github-pages environment 禁止此分支。推薦在 GitHub environment 允許此功能分支後重跑；不要只根據 workflow 已觸發就將網站標成已發布。
+- **本專案做法：** 初始部署因分支不在 `github-pages` environment 的允許清單而失敗。確認現有規則包含 `main` 且使用自訂分支清單後，只新增 `codex/commonality-quiz-prototype`，保留 `main` 和其他 environment 保護，再重跑 workflow；run 28 attempt 2 成功，並以公開網址 HTTP 200 和頁面標題確認部署內容。不要只根據 workflow 已觸發或排入佇列就將網站標成已發布。
 
 ## 手機上的選項要留足點按空間，選取狀態不需雙重描邊
 

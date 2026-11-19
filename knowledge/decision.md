@@ -98,7 +98,7 @@
 
 ## 發布
 
-- **現況：** 部署 workflow runs 25 與 26 均已完成但失敗；GitHub Pages 的 `github-pages` environment protection rules 拒絕 `codex/commonality-quiz-prototype`，本分支尚未發布。詳見 [run 25](https://github.com/310182-sketch/riddle-match/actions/runs/44606377149) 和 [run 26](https://github.com/310182-sketch/riddle-match/actions/runs/44606762800)。
-- **原因：** Actions 註解指出此分支不在允許部署的分支規則內，部署工作步驟尚未開始。
-- **決定：** 保留遠端 `main` 的猜謎版本，先發布本分支的二選一原型；真人後端及權限驗證完成後再發布連線版本。
-- **推薦：** 在 GitHub repository 的 github-pages environment 允許 codex/commonality-quiz-prototype 部署，再重跑 workflow；只加入此分支即可保留現有環境保護。此設定變更需先取得使用者確認。
+- **現況：** GitHub Pages 原型已部署；[run 28 attempt 2](https://github.com/310182-sketch/riddle-match/actions/runs/44607366751) 成功，公開網址 [https://310182-sketch.github.io/riddle-match/](https://310182-sketch.github.io/riddle-match/) 回應 HTTP 200 並包含遊戲頁標題。Supabase 尚未設定，真人登入和配對仍停用。
+- **原因：** 初始部署 run 25 至 27 因 `codex/commonality-quiz-prototype` 不在 `github-pages` 環境允許清單而失敗。
+- **決定：** 保留遠端 `main` 的猜謎版本及其部署許可，只把 `codex/commonality-quiz-prototype` 加入 `github-pages` 的自訂分支允許清單；其他 environment 保護維持原設定。依持續工作目標授權採用此推薦後，重跑 Actions 並確認公開頁面。
+- **下一階段：** 真人後端及權限驗證完成後再發布連線版本；原型部署不表示 Auth、Supabase RPC、Realtime、歷史紀錄或跨裝置功能已在線啟用。
