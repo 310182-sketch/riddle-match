@@ -476,6 +476,30 @@ Deno.test("reports are private, deduplicated, and unavailable outside the room",
   }
 });
 
+Deno.test("block writes share matchmaking and invite-join serialization", async () => {
+  const db = await createDatabase();
+  try {
+    const result = await db.query<{ function_name: string; source: string }>(`
+      select p.proname as function_name, p.prosrc as source
+      from pg_proc p
+      where p.oid in (
+        'public.block_room_opponent(uuid)'::regprocedure,
+        'public.queue_for_match(text,text)'::regprocedure,
+        'public.join_invite_room(text,text)'::regprocedure
+      )
+    `);
+    assertEquals(result.rows.length, 3, "all three RPCs are installed");
+    for (const fn of result.rows) {
+      assert(
+        fn.source.includes("pg_catalog.pg_advisory_xact_lock(82420711)"),
+        `${fn.function_name} uses the shared transaction lock`,
+      );
+    }
+  } finally {
+    await db.close();
+  }
+});
+
 Deno.test("random matchmaking respects topics, block lists, and cancellation", async () => {
   const db = await createDatabase();
   try {

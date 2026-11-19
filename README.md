@@ -12,7 +12,7 @@
 - 匯出 1080×1920 結果分享卡；可呼叫系統分享面板或下載 PNG。Instagram 交接仍需用實機確認。
 - 可在手機與桌面瀏覽器操作。
 
-目前工作區沒有 Supabase 專案 URL／公開 key，因此登入與真人服務入口停用，使用者只能玩本機示範。五份資料庫 migration 已在 PGlite 預檢環境套用，9 項可重複執行的 migration 回歸測試涵蓋雙人作答、隨機配對、歷史分頁與默契排名、本人紀錄讀寫權限、資料保留期限、服務端限量、安全 RPC 及刪除帳號時的資料收尾；這不代表 Supabase 線上設定、Realtime、RLS、Edge Function 或跨裝置流程已驗證。
+目前工作區沒有 Supabase 專案 URL／公開 key，因此登入與真人服務入口停用，使用者只能玩本機示範。六份資料庫 migration 已在 PGlite 預檢環境套用，10 項可重複執行的 migration 回歸測試涵蓋雙人作答、隨機配對、封鎖競態序列化、歷史分頁與默契排名、本人紀錄讀寫權限、資料保留期限、服務端限量、安全 RPC 及刪除帳號時的資料收尾；這不代表 Supabase 線上設定、Realtime、RLS、Edge Function 或跨裝置流程已驗證。
 
 ## Supabase Auth 設定
 
@@ -51,7 +51,7 @@ supabase secrets set ALLOWED_ORIGINS="https://<owner>.github.io,http://localhost
 
 ## 真人配對後端草稿
 
-`supabase/migrations/` 收錄 Supabase PostgreSQL schema 與 RPC，包含隨機配對、12 位邀請代碼、雙人作答同步、玩家各自保存 90 天的對局摘要、共同點排名、封鎖／檢舉、服務端限量及帳號刪除清理；房間、配對票券和原始作答最多保留 24 小時，檢舉保存 180 天。五份 migration 已在本機 PGlite 預檢環境套用；這不代表已部署至 Supabase，也不驗證 Supabase Auth、Realtime、pg_cron 或線上 RLS。正式連接前須建立 Supabase 專案、啟用匿名登入、依序套用並驗證 migration、確認 RLS／Realtime／RPC 權限與清理排程，再設定公開用戶端 URL 與 anon key。不要將 service role key 放進靜態網站。
+`supabase/migrations/` 收錄 Supabase PostgreSQL schema 與 RPC，包含隨機配對、12 位邀請代碼、雙人作答同步、玩家各自保存 90 天的對局摘要、共同點排名、封鎖／檢舉、服務端限量及帳號刪除清理；房間、配對票券和原始作答最多保留 24 小時，檢舉保存 180 天。六份 migration 已在本機 PGlite 預檢環境套用；這不代表已部署至 Supabase，也不驗證 Supabase Auth、Realtime、pg_cron 或線上 RLS。正式連接前須建立 Supabase 專案、啟用匿名登入、依序套用並驗證 migration、確認 RLS／Realtime／RPC 權限與清理排程，再設定公開用戶端 URL 與 anon key。不要將 service role key 放進靜態網站。
 
 ### 本機 migration 回歸測試
 
@@ -61,7 +61,7 @@ supabase secrets set ALLOWED_ORIGINS="https://<owner>.github.io,http://localhost
 deno test --allow-read --allow-net supabase/tests/migrations.test.ts
 ```
 
-9 項測試會自動依檔名排序並套用 `supabase/migrations/` 中所有 SQL migration，涵蓋雙人作答揭曉與歷史摘要、主題相容的隨機配對和封鎖／取消、歷史游標分頁與 90 天範圍、至少三局的共同點排名、本人歷史讀取與刪除權限、24／90／180 天清理、配對及開房限量、檢舉去重與封鎖、security-definer 函式的固定空 `search_path` 與匿名角色執行權限，以及刪除帳號時關閉房間、清除本人歷史、匿名化對手歷史並解除檢舉雙方的帳號連結。這些測試使用最小 Auth／角色 stub，不能取代 Supabase 專案中的 Auth、Realtime、pg_cron、RLS 和跨裝置驗證。
+10 項測試會自動依檔名排序並套用 `supabase/migrations/` 中所有 SQL migration，涵蓋雙人作答揭曉與歷史摘要、主題相容的隨機配對和封鎖／取消、封鎖與配對／邀請加入共用交易鎖、歷史游標分頁與 90 天範圍、至少三局的共同點排名、本人歷史讀取與刪除權限、24／90／180 天清理、配對及開房限量、檢舉去重與封鎖、security-definer 函式的固定空 `search_path` 與匿名角色執行權限，以及刪除帳號時關閉房間、清除本人歷史、匿名化對手歷史並解除檢舉雙方的帳號連結。這些測試使用最小 Auth／角色 stub，不能取代 Supabase 專案中的 Auth、Realtime、pg_cron、RLS、並行交易或跨裝置驗證。
 
 ## 本機預覽
 
@@ -79,7 +79,7 @@ Repository 的 `.github/workflows/pages.yml` 會將 `site/` 發布至 [GitHub Pa
 
 ## 下一步
 
-- 建立 Supabase 專案並填入 `site/supabase-config.js`，啟用 Anonymous Auth 和 Manual Linking，依序套用五份 migration，並在專案內驗證 RLS、Realtime、RPC 權限和資料清除排程。
+- 建立 Supabase 專案並填入 `site/supabase-config.js`，啟用 Anonymous Auth 和 Manual Linking，依序套用六份 migration，並在專案內驗證 RLS、Realtime、RPC 權限和資料清除排程。
 - 建立並設定 Facebook、Google、X provider app，驗證登入、callback、session 恢復和匿名帳號 linking；依 Meta 資格與 app review 結果評估 Instagram、Threads custom OAuth。
 - 部署帳號刪除 Edge Function，設定並驗證允許的 origin 和後端 service role secret，再驗證刪除帳號資料收尾。
 - 使用兩部裝置走完邀請房、隨機配對、答題、結果、歷史查詢和默契統計，並檢查封鎖、檢舉與帳號刪除權限。
