@@ -61,7 +61,7 @@ supabase secrets set ALLOWED_ORIGINS="https://<owner>.github.io,http://localhost
 deno test --allow-read --allow-net supabase/tests/migrations.test.ts
 ```
 
-9 項測試涵蓋雙人作答揭曉與歷史摘要、主題相容的隨機配對和封鎖／取消、歷史游標分頁與 90 天範圍、至少三局的共同點排名、本人歷史讀取與刪除權限、24／90／180 天清理、配對及開房限量、檢舉去重與封鎖、security-definer 函式的固定空 `search_path`，以及刪除帳號時關閉房間、清除本人歷史、匿名化對手歷史並解除檢舉雙方的帳號連結。這些測試使用最小 Auth／角色 stub，不能取代 Supabase 專案中的 Auth、Realtime、pg_cron、RLS 和跨裝置驗證。
+9 項測試會自動依檔名排序並套用 `supabase/migrations/` 中所有 SQL migration，涵蓋雙人作答揭曉與歷史摘要、主題相容的隨機配對和封鎖／取消、歷史游標分頁與 90 天範圍、至少三局的共同點排名、本人歷史讀取與刪除權限、24／90／180 天清理、配對及開房限量、檢舉去重與封鎖、security-definer 函式的固定空 `search_path`，以及刪除帳號時關閉房間、清除本人歷史、匿名化對手歷史並解除檢舉雙方的帳號連結。這些測試使用最小 Auth／角色 stub，不能取代 Supabase 專案中的 Auth、Realtime、pg_cron、RLS 和跨裝置驗證。
 
 ## 本機預覽
 

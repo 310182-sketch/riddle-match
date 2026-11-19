@@ -1,13 +1,5 @@
 import { PGlite } from "npm:@electric-sql/pglite@0.3.14";
 
-const migrationFiles = [
-  "20261119000100_realtime_commonality_game.sql",
-  "20261120000100_invite_rooms_and_player_history.sql",
-  "20261120000200_safety_and_abuse_controls.sql",
-  "20261120000300_close_rooms_on_account_deletion.sql",
-  "20261120000400_anonymize_safety_reports_on_account_deletion.sql",
-];
-
 const users = {
   host: "00000000-0000-4000-8000-000000000101",
   guest: "00000000-0000-4000-8000-000000000102",
@@ -16,6 +8,22 @@ const users = {
 };
 
 type JsonObject = Record<string, unknown>;
+
+async function getMigrationFiles() {
+  const filenames: string[] = [];
+  for await (
+    const entry of Deno.readDir(
+      new URL("../migrations/", import.meta.url),
+    )
+  ) {
+    if (entry.isFile && entry.name.endsWith(".sql")) {
+      filenames.push(entry.name);
+    }
+  }
+  filenames.sort();
+  assert(filenames.length > 0, "at least one SQL migration must exist");
+  return filenames;
+}
 
 async function createDatabase() {
   const db = new PGlite();
@@ -33,7 +41,7 @@ async function createDatabase() {
       as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   `);
 
-  for (const filename of migrationFiles) {
+  for (const filename of await getMigrationFiles()) {
     const path = new URL(`../migrations/${filename}`, import.meta.url);
     await db.exec(await Deno.readTextFile(path));
   }
