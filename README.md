@@ -11,6 +11,10 @@
 
 這是純前端互動原型。配對對象和對方答案由瀏覽器內的範例資料模擬；沒有真人配對、帳號服務、聊天室或遊戲紀錄，也不會保存暱稱。畫面會持續標示示範模式。
 
+## 真人配對後端草稿
+
+`supabase/migrations/` 收錄 Supabase PostgreSQL 的第一版 schema 與 RPC migration，包含匿名玩家配對、房間同步、雙方作答後揭曉及短期資料清除。這份 migration 尚未套用到 Supabase 專案，也沒有連接目前的前端；目前網站仍是示範模式。正式連接前須建立 Supabase 專案、啟用匿名登入、套用並驗證 migration、排程清除函式，再設定公開用戶端 URL 與 anon key。不要將 service role key 放進靜態網站。
+
 ## 本機預覽
 
 直接用瀏覽器開啟 site/index.html 即可預覽，不需要安裝套件或建置工具。
@@ -27,7 +31,7 @@ Repository 的 .github/workflows/pages.yml 會將 site/ 發布至 GitHub Pages�
 
 ## 下一步
 
-- 測試不同裝置上的流程與無障礙操作。
-- 決定正式版的配對等待、同步作答、離線處理與紀錄保存方式。
-- 規劃即時配對服務、資料保護和玩家安全機制。
-- 真人配對上線前，把示範玩家和答案改為伺服器管理的遊戲狀態。
+- 在 Supabase 專案套用並驗證 migration、RLS、匿名登入、Realtime 和資料清除排程。
+- 將前端示範流程接上真人配對 RPC，並用兩個不同裝置走完整局。
+- 在 iOS／Android 實機與 VoiceOver／TalkBack 檢查無障礙操作，收集玩家回饋。
+- 真人 MVP 上線前完成檢舉、封鎖、離線處理及匿名帳號濫用風險規劃。

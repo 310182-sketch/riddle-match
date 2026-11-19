@@ -10,9 +10,9 @@
 
 ## 目前狀態
 
-- **階段：互動原型與瀏覽器版可用性檢查已完成，準備開始真人配對後端。** 首頁、主題選擇、示範配對、五題作答、逐題揭曉與結果頁已實作；Chrome 模擬 320、360、390、768、1024、1440px 寬度均未發現首頁水平溢出，並以鍵盤走完三種手機尺寸的五題流程。
+- **階段：互動原型與瀏覽器版可用性檢查已完成，真人配對後端 migration 初稿已建立。** 首頁、主題選擇、示範配對、五題作答、逐題揭曉與結果頁已實作；Chrome 模擬 320、360、390、768、1024、1440px 寬度均未發現首頁水平溢出，並以鍵盤走完三種手機尺寸的五題流程。
 - **無障礙檢查範圍：** 已改善主題按鈕字級與尺寸、程式焦點提示、答案選取狀態和題目進度語意。尚未用 iOS／Android 實機、VoiceOver 或 TalkBack 驗證，也尚未收集外部玩家回饋。
-- **資料與配對：** 目前仍由瀏覽器範例資料模擬對方作答；沒有連接其他訪客，也不會保存暱稱或遊戲紀錄。真人 MVP 預設採用 Supabase Anonymous Auth、PostgreSQL RPC 與 Realtime；尚未建立 Supabase 專案或套用資料庫 migration，詳見 knowledge/decision.md。
+- **資料與配對：** 目前仍由瀏覽器範例資料模擬對方作答；沒有連接其他訪客，也不會保存暱稱或遊戲紀錄。真人 MVP 預設採用 Supabase Anonymous Auth、PostgreSQL RPC 與 Realtime；已建立 `supabase/migrations/` 的初稿，但尚未建立 Supabase 專案、套用或驗證 migration，詳見 knowledge/decision.md。
 - **工作區：** 原型位於 site/，直接開啟 site/index.html 即可操作，不需安裝套件或建置。
 - **方向差異：** 遠端 main 保留原有的自由提問猜謎版本；目前分支依本計畫製作二選一共同點遊戲原型，詳見 knowledge/decision.md。
 - **參考網站：** [同詞相遇](https://www.sameword.cc/zh-hant/) 的「默契問答」，參考選主題、各自作答與揭曉答案的互動方式。
@@ -67,6 +67,10 @@
 
 ### 3. 真人配對版本
 
+- [x] 建立第一版 Supabase SQL migration 初稿，包含題庫、配對佇列、房間、答案、RLS、Realtime 安全房間狀態、配對／作答 RPC 和資料清除函式。
+- [ ] 建立 Supabase 專案並啟用 Anonymous Auth；套用 migration，檢查各 RPC、RLS 和 Realtime 權限。
+- [ ] 排程執行資料清除函式，驗證關閉後 24 小時的資料保留政策。
+- [ ] 將前端示範流程接上匿名登入、配對 RPC、房間狀態與即時更新；公開設定只放 URL 和 anon key。
 - [ ] 建立可讓不同訪客進入的即時配對與遊戲房間服務。
 - [ ] 同步主題、問題進度和兩位玩家的作答狀態。
 - [ ] 確保只有雙方都完成作答後才揭曉答案。
