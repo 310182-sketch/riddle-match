@@ -3,6 +3,7 @@
 window.SAMEWAVE_SUPABASE_CONFIG = {
   url: "",
   anonKey: "",
+  accountDeletionEnabled: false,
   providers: {
     google: false,
     facebook: false,

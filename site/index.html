@@ -10,10 +10,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=9">
-    <script src="supabase-config.js?v=1" defer></script>
+    <link rel="stylesheet" href="styles.css?v=10">
+    <script src="supabase-config.js?v=2" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.js" integrity="sha384-A97u3Qnt9GZHURO9YJZRe7VQgGUeFzcv6I1oIGnUTxQrCxnpQMwR0/G8F2zt9abZ" crossorigin="anonymous" defer></script>
-    <script src="app.js?v=7" defer></script>
+    <script src="app.js?v=8" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -90,7 +90,9 @@
                 <button class="auth-provider-button" type="button" data-auth-provider="instagram" disabled>Instagram</button>
                 <button class="auth-provider-button" type="button" data-auth-provider="threads" disabled>Threads</button>
               </div>
-              <p class="auth-note">Facebook、Google、X 須先在 Supabase 啟用並設定 callback。Instagram 僅支援符合資格的專業帳號；Threads 與 Instagram 需完成 Meta 審核及 custom OAuth 設定。配對、歷史與統計尚未連上服務。</p>
+              <p class="auth-note">Facebook、Google、X 須先在 Supabase 啟用並設定 callback。Instagram 僅支援符合資格的專業帳號；Threads 與 Instagram 需完成 Meta 審核及 custom OAuth 設定。真人功能需設定 Supabase 專案後啟用。</p>
+              <button class="auth-delete-account hidden" type="button" data-auth-delete-account>永久刪除帳號</button>
+              <p class="auth-delete-note hidden" data-auth-delete-note></p>
             </section>
           </div>
 
@@ -287,6 +289,7 @@
         <li>房間、配對票券與原始答案在對局結束或逾期後最多保留 24 小時；你自己的歷史摘要保存 90 天，可在歷史頁逐筆刪除。</li>
         <li>封鎖清單只有你能查閱，會保留到你解除封鎖或刪除帳號；封鎖會阻止再次隨機配對及互相加入邀請房。</li>
         <li>檢舉只記錄房間、類別及你填寫的說明，不保存答案；案件最多保存 180 天。請勿在說明中填入聯絡方式或他人的敏感資料。</li>
+        <li>啟用自助刪除後，刪除帳號會移除你的歷史和封鎖清單；既有檢舉會解除雙方帳號連結，說明最多保留 180 天。</li>
         <li>登入與資料儲存由 Supabase 提供。社群登入可能將平台提供的帳號識別或 email 存在 Supabase Auth；本遊戲不會公開顯示 email 或登入 token。</li>
       </ul>
       <p class="privacy-operations-note">目前原型尚未配置人工審查人員，檢舉不代表即時有人處理。遇到不適狀況請先離開對局並封鎖對方；正式公開服務前會補上審查聯絡方式與處理流程。</p>

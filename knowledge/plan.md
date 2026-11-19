@@ -10,10 +10,10 @@
 
 ## 目前狀態
 
-- **階段：** 互動原型及第一輪瀏覽器版可用性檢查已完成；三份 Supabase migration 草稿已建立。前端已接上邀請房的真人答題、雙方完成才揭曉、雙方確認才前進、完局結果，以及隨機配對佇列、取消、30 秒逾時和重新排隊；Chrome mock 流程已驗證。另已加入玩家檢舉／封鎖、封鎖清單和隱私告知，安全 RPC 及限量規則通過 PGlite 預檢。原型亦保留首頁、主題選擇、示範配對、五題作答和分享結果。
+- **階段：** 互動原型及第一輪瀏覽器版可用性檢查已完成；四份 Supabase migration 草稿和自助刪除帳號 Edge Function 已建立。前端已接上邀請房的真人答題、雙方完成才揭曉、雙方確認才前進、完局結果，以及隨機配對佇列、取消、30 秒逾時和重新排隊；Chrome mock 流程已驗證。另已加入玩家檢舉／封鎖、封鎖清單、隱私告知和受設定控制的刪除帳號入口；資料庫安全及刪除流程通過 PGlite 預檢。原型亦保留首頁、主題選擇、示範配對、五題作答和分享結果。
 - **已驗證：** Chrome headless 在 320、360、390、768、1024、1440px 檢查首頁、遊戲及結果頁，皆無水平溢出；以鍵盤在六種寬度完成五題流程。已改善選項字級、觸控尺寸、焦點提示及作答狀態語意。
 - **仍待線上驗證：** 工作區沒有 Supabase URL／公開 key，無法使用真實登入、房間或配對服務。邀請房答題與隨機配對前端已接上 RPC，並以 Chrome mock 驗證成功揭曉、雙方確認、結果讀取、配對成功、逾時重試及取消；尚未在 Supabase Realtime 或兩部裝置驗證。歷史頁查詢、分頁、默契排名及逐筆刪除 RPC 也已用 Chrome mock 驗證，但不能查詢真實對局。結果頁已能產生 1080×1920 PNG，支援系統分享面板及下載備援；尚未在 iOS／Android 實機確認 Instagram 交接。
-- **後端：** 三份 migration 已在本機 PGlite 預檢環境成功套用，並檢查邀請房、五題雙人作答／揭曉、歷史、排名、隨機配對、基本資料存取限制及安全功能。尚未建立 Supabase 專案；線上 Auth、Realtime、清理排程和 Supabase 環境 RLS 仍未驗證。
+- **後端：** 四份 migration 已在本機 PGlite 預檢環境成功套用，並檢查邀請房、五題雙人作答／揭曉、歷史、排名、隨機配對、基本資料存取限制、安全功能及刪除帳號時關閉房間。自助刪除 Edge Function 已加入，但未部署；尚未建立 Supabase 專案，線上 Auth、Realtime、清理排程和 Supabase 環境 RLS 仍未驗證。
 - **資料政策：** 真人房間、配對票券及原始答案最多保留 24 小時；個人歷史摘要保存 90 天且可逐筆刪除；檢舉資料保存 180 天；封鎖關係保留至解除或刪除帳號。這些是目前採用的 MVP 預設，尚未部署或在 Supabase 驗證。
 - **登入與社群：** 已加入可選的 Supabase Auth 前端入口，包含匿名登入、Google／Facebook／X OAuth、Instagram／Threads custom provider 設定、PKCE session 恢復及匿名帳號 identity linking。Chrome mock client 已驗證登入狀態和 provider 呼叫；尚無 Supabase URL／anon key，登入按鈕目前停用，live login／callback／帳號 linking 仍未設定或驗證。平台限制見 [knowledge/decision.md](decision.md)。
 - **前端設計：** 已完成第一輪整體字級、留白、按鈕及主題選項版面整理；房間、真人答題、隨機配對等待及歷史頁已接上 RPC，無設定時仍保留清楚標示的操作預覽。Chrome mock 驗證流程分支；六種寬度與鍵盤流程的前一輪檢查已通過。真人服務環境的實際網路狀態仍待驗證。
@@ -70,6 +70,7 @@
 - [x] 定義單向封鎖及解除方式；任一方向封鎖時略過隨機配對並拒絕邀請房加入。
 - [x] 定義 MVP 帳號層級限量：10 分鐘最多 12 張配對票券、1 小時最多 6 個邀請房。
 - [x] 定義隱私告知涵蓋資料用途、暫存及歷史期限、封鎖／檢舉資料和目前無人工即時審查的限制。
+- [x] 定義刪除帳號會移除登入身分、本人歷史和封鎖資料；匿名化其他人的歷史，並解除檢舉與帳號 ID 的連結後按原期限清除。
 - [ ] 建立 Facebook、Google、X provider app 並驗證 OAuth 2.0 callback、測試帳號與公開環境設定。
 - [ ] 評估 Instagram 專業帳號登入與 Threads custom OAuth；完成 Meta app review，驗證 Supabase callback、個人檔案識別及匿名帳號 linking。
 - [ ] 指定正式營運審查人員、玩家聯絡方式、處理時限和緊急升級流程；建立前不得宣稱有人即時審查檢舉。
@@ -96,6 +97,7 @@
 - [x] 以 Chrome mock RPC 驗證載入、空清單、錯誤重試、分頁、刪除後刷新、登出清除資料、切換帳號時丟棄舊請求，以及動態文字不會被解讀為 HTML。
 - [x] 加入真人對局中的檢舉及封鎖入口、歷史頁封鎖清單和解除封鎖操作；示範對局不顯示真人安全操作。
 - [x] 加入隱私與安全告知，明列資料用途和保存期限、檢舉審查限制及避免在自由文字中填寫敏感資料的提醒。
+- [x] 加入需明確確認的自助刪除入口；Edge Function 尚未部署時停用按鈕並說明原因，刪除前告知歷史、封鎖和檢舉資料的處理方式。
 - [x] 建立 1080×1920 結果分享卡、系統分享面板流程與 PNG 下載備援；使用者取消分享時不自動下載或發布。
 - [ ] 在 iOS Safari、Android Chrome 實機檢查方向及文字放大版面，並以 VoiceOver 或 TalkBack 驗證。
 - [ ] 收集玩家回饋並調整題庫、視覺設計及操作流程。
@@ -106,9 +108,11 @@
 - [x] 擴充 migration 草稿，加入 12 位邀請代碼、建立／加入房間 RPC、單一有效房間檢查及隨機配對互斥。
 - [x] 加入完成對局時的雙方私人歷史摘要、90 天查詢與保留、逐筆刪除、共同點排名及帳號刪除匿名化草稿。
 - [x] 加入可設定的 Supabase JS Auth client：支援匿名登入、Facebook／Google／X、以 custom provider ID 設定 Instagram／Threads、session 恢復與已登入匿名帳號的 identity linking；未設定時保留示範模式。
-- [x] 在本機 PGlite 套用三份 migration，驗證邀請對局五題流程、雙方答完才揭曉／推進、歷史與默契排名、隨機配對，以及非成員房間 RLS 和答案表無直接讀取權。
+- [x] 在本機 PGlite 套用四份 migration，驗證邀請對局五題流程、雙方答完才揭曉／推進、歷史與默契排名、隨機配對，以及非成員房間 RLS 和答案表無直接讀取權。
 - [x] 建立安全功能 migration：封鎖清單隔離、封鎖後跳過隨機配對／拒絕邀請加入、同房檢舉 RPC、私有檢舉表、帳號限量 trigger 和 180 天案件清除排程。
 - [x] 在本機 PGlite 驗證檢舉需為同房玩家且每房只能提交一次、登入玩家不能直讀檢舉表、封鎖清單限本人查詢、封鎖雙向配對排除、邀請房拒絕封鎖玩家、配對與開房限量及 180 天清除。
+- [x] 加入 JWT 驗證的 `delete-account` Edge Function，由後端 service role 刪除呼叫者本人；以精確 origin allow list 限制瀏覽器呼叫，service role key 不出現在前端。
+- [x] 加入 Auth 使用者刪除前關閉進行中房間、清除房間代碼、取消等待票券和調整對局保留時間的 trigger；PGlite 驗證刪除時房間關閉、封鎖關係清除、檢舉帳號連結解除。
 - [ ] 建立 Supabase 專案與開發／正式環境，啟用 Anonymous Auth，套用並實際驗證 migration。
 - [ ] 啟用 Supabase Manual Linking；設定本機與 GitHub Pages redirect allow list 及 Google／Facebook／X callback。
 - [ ] 完成 RLS、Realtime、RPC 權限和資料驗證；確保玩家只能查看有權存取的房間、答案與紀錄。
@@ -126,6 +130,8 @@
 - [ ] 安全保存 provider secret；靜態前端僅使用公開 project URL 與 anon key，不暴露 service role key。
 - [ ] 在兩部不同裝置上驗證建立房間、代碼加入、隨機配對、完整遊戲、歷史查詢和統計。
 - [ ] 使用正式 Supabase Auth／RLS 驗證封鎖及解除封鎖、邀請房封鎖競態、檢舉權限、限量競態與 180 天清理排程。
+- [ ] 部署帳號刪除 Edge Function，設定 `ALLOWED_ORIGINS` 和 Supabase 後端 service role secret，真人驗證後才將 `accountDeletionEnabled` 設為 `true`。
+- [ ] 在正式 Supabase 驗證匿名及社群帳號刪除、JWT／origin 拒絕、Auth 資料清理、歷史匿名化及正在進行的對局收尾。
 - [ ] 視覺檢查新增隱私視窗、檢舉表單、真人對局安全操作和封鎖清單，並在行動裝置與讀屏工具驗證。
 
 ### 4. 分享與發布

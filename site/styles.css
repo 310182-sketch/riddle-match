@@ -488,6 +488,10 @@ body { font-size: 16px; line-height: 1.55; }
 .auth-provider-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 8px; }
 .auth-provider-button { width: 100%; padding: 0 8px; }
 .auth-signout { min-height: 34px; padding: 0 11px; color: #62665d; font-size: 11px; }
+.auth-delete-account { width: 100%; min-height: 42px; margin-top: 11px; border: 1px solid #e4c9c2; border-radius: 9px; padding: 0 12px; background: #fffaf8; color: #8b4f3b; font-size: 12px; font-weight: 700; cursor: pointer; }
+.auth-delete-account:not(:disabled):hover { background: #fbf0ec; }
+.auth-delete-account:disabled { opacity: .55; cursor: default; }
+.auth-delete-note { margin: 6px 0 0; color: #81756e; font-size: 11px; line-height: 1.6; }
 .auth-anonymous-button:not(:disabled):hover { background: var(--green-dark); }
 .auth-provider-button:not(:disabled):hover,.auth-signout:not(:disabled):hover { border-color: #b9c5b1; background: var(--green-soft); }
 .auth-anonymous-button:disabled,.auth-provider-button:disabled,.auth-signout:disabled { opacity: .52; }

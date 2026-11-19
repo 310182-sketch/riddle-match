@@ -106,7 +106,7 @@
 
 - **經驗：** PGlite 可在瀏覽器執行 PostgreSQL，讓 migration 在建立雲端專案前先做套用和 RPC smoke test。以最小 `auth.users`、`auth.uid()` 與角色 stub 模擬 Supabase 依賴，可提早發現 PostgreSQL／PLpgSQL 語法錯誤及核心資料流程問題。
 - **適用範圍：** 使用 PostgreSQL、RPC、觸發器和 RLS 的 Supabase 專案，且本機沒有 Docker、PostgreSQL 或 Supabase CLI 時。
-- **本專案做法：** 在一次性 PGlite 資料庫依序套用三份 migration，完成雙人答題、歷史／排名、隨機配對及安全 RPC 預檢；另外確認非成員看不到房間、一般登入者不能直讀答案或檢舉表、封鎖會阻止重配和邀請加入、配對／開房限量及檢舉去重與 180 天清除。此預檢不等同 Supabase 驗證：Auth claims、Realtime publication、pg_cron、專案預設權限及真實 RLS 執行環境仍須另測。
+- **本專案做法：** 在一次性 PGlite 資料庫依序套用四份 migration，完成雙人答題、歷史／排名、隨機配對、安全 RPC 和帳號刪除收尾預檢；另外確認非成員看不到房間、一般登入者不能直讀答案或檢舉表、封鎖會阻止重配和邀請加入、配對／開房限量、檢舉去重與 180 天清除，以及刪除帳號時關閉房間、匿名化對手歷史並解除檢舉帳號連結。此預檢不等同 Supabase 驗證：Auth claims、Realtime publication、pg_cron、Edge Function secret、CORS 及真實 RLS 執行環境仍須另測。
 
 ## 尚未連線的流程要讓示範狀態一眼可見
 
@@ -162,3 +162,9 @@
 - **適用範圍：** 有匿名帳號或隨機配對的雙人遊戲、社群配對、媒合平台及其他讓使用者彼此互動的產品。
 - **本專案做法：** `block_room_opponent` 和 `submit_player_report` 只接受房間 ID，再由伺服器驗證登入者是房間成員並找出對方；封鎖清單只由本人專屬 RPC 操作，雙向封鎖會跳過配對，邀請加入另以資料庫觸發器檢查。檢舉一房一筆、說明最多 500 字、案件最多保留 180 天；一般登入者不能直接讀取檢舉表，刪除帳號會解除案件與帳號 ID 的連結。PGlite 已預檢主要權限與規則；Supabase RLS、pg_cron 和實際審查營運仍須另驗。
 - **操作限制：** 服務端可用帳號限量降低重複開房／排隊，但匿名帳號可重新建立，不能取代 IP／裝置層級風控。若尚無值班審查人員和聯絡方式，介面要明說檢舉不會即時有人處理，且不能把它當成緊急支援管道。
+
+## 靜態前端的帳號刪除要經過驗證過的後端函式
+
+- **經驗：** 靜態前端不能安全持有 Supabase service role key，也不能直接刪除 `auth.users`。刪除函式應驗證呼叫者的 JWT，從已驗證 session 取得帳號 ID，不接受瀏覽器指定任意目標 ID；再由後端 service role 執行管理刪除。可用精確 origin allow list 限制瀏覽器來源，並讓前端在函式部署和來源設定完成前保持停用。
+- **適用範圍：** GitHub Pages 等靜態網站需要提供 Supabase 使用者自助刪除帳號的產品。
+- **本專案做法：** `delete-account` Edge Function 用使用者 session 呼叫 Auth `getUser()`，再以後端 service role 刪除剛驗證的 `user.id`；前端只呼叫 Edge Function，公開設定只存 `accountDeletionEnabled`。帳號刪除前的資料庫 trigger 先結束進行中房間並取消等待票券，避免單純 cascade 刪除成員後留下仍顯示 playing 的房間。PGlite 可檢查資料庫 trigger、外鍵和匿名化，但 Supabase Auth Admin 權限、Edge secret、JWT 驗證和 CORS origin 必須在真實專案驗證。

@@ -12,7 +12,7 @@
 - 匯出 1080×1920 結果分享卡；可呼叫系統分享面板或下載 PNG。Instagram 交接仍需用實機確認。
 - 可在手機與桌面瀏覽器操作。
 
-目前工作區沒有 Supabase 專案 URL／公開 key，因此登入與真人服務入口停用，使用者只能玩本機示範。三份資料庫 migration 已在 PGlite 預檢環境套用，並驗證主要遊戲、安全 RPC、資料存取限制、帳號限量與檢舉保存期限；這不代表 Supabase 線上設定、Realtime、RLS 或跨裝置流程已驗證。
+目前工作區沒有 Supabase 專案 URL／公開 key，因此登入與真人服務入口停用，使用者只能玩本機示範。四份資料庫 migration 已在 PGlite 預檢環境套用，並驗證主要遊戲、安全 RPC、資料存取限制、帳號限量、檢舉保存期限及刪除帳號時的資料收尾；這不代表 Supabase 線上設定、Realtime、RLS、Edge Function 或跨裝置流程已驗證。
 
 ## Supabase Auth 設定
 
@@ -38,9 +38,20 @@ providers: {
 
 匿名帳號連結前，需在 Supabase Auth 設定中啟用 **Manual Linking**。OAuth redirect allow list 必須包含實際網站子路徑；本機應透過 HTTP localhost 預覽，而不是直接開啟 HTML 檔。
 
+### 自助刪除帳號
+
+刪除帳號由 `supabase/functions/delete-account/` 的 Edge Function 執行：函式先驗證目前登入者，再以 Supabase 後端的 service role 刪除該使用者。資料庫會先關閉該玩家的進行中房間；玩家自己的歷史和封鎖關係會移除，其他玩家的歷史會匿名化，既有檢舉則解除帳號連結並保留至 180 天期限。靜態前端不會取得 service role key。
+
+建立 Supabase 專案後部署函式，並將 `ALLOWED_ORIGINS` 設為逗號分隔的精確網站 origin（例如 `https://<owner>.github.io` 和本機 HTTP origin；不要附網站子路徑）。只有確認 Edge Function、secret 和 CORS origin 設定完成後，才在 `site/supabase-config.js` 設定 `accountDeletionEnabled: true`；範本預設為 `false`，避免顯示無法使用的按鈕。正式 origin 尚未確定前不要打開此開關。
+
+```sh
+supabase functions deploy delete-account
+supabase secrets set ALLOWED_ORIGINS="https://<owner>.github.io,http://localhost:8000"
+```
+
 ## 真人配對後端草稿
 
-`supabase/migrations/` 收錄 Supabase PostgreSQL schema 與 RPC，包含隨機配對、12 位邀請代碼、雙人作答同步、玩家各自保存 90 天的對局摘要、共同點排名、封鎖／檢舉及服務端限量；房間、配對票券和原始作答最多保留 24 小時，檢舉保存 180 天。三份 migration 已在本機 PGlite 預檢環境套用；這不代表已部署至 Supabase，也不驗證 Supabase Auth、Realtime、pg_cron 或線上 RLS。正式連接前須建立 Supabase 專案、啟用匿名登入、依序套用並驗證 migration、確認 RLS／Realtime／RPC 權限與清理排程，再設定公開用戶端 URL 與 anon key。不要將 service role key 放進靜態網站。
+`supabase/migrations/` 收錄 Supabase PostgreSQL schema 與 RPC，包含隨機配對、12 位邀請代碼、雙人作答同步、玩家各自保存 90 天的對局摘要、共同點排名、封鎖／檢舉、服務端限量及帳號刪除清理；房間、配對票券和原始作答最多保留 24 小時，檢舉保存 180 天。四份 migration 已在本機 PGlite 預檢環境套用；這不代表已部署至 Supabase，也不驗證 Supabase Auth、Realtime、pg_cron 或線上 RLS。正式連接前須建立 Supabase 專案、啟用匿名登入、依序套用並驗證 migration、確認 RLS／Realtime／RPC 權限與清理排程，再設定公開用戶端 URL 與 anon key。不要將 service role key 放進靜態網站。
 
 ## 本機預覽
 
@@ -62,5 +73,6 @@ Repository 的 `.github/workflows/pages.yml` 會將 `site/` 發布至 GitHub Pag
 - 將前端示範流程接上真人配對 RPC，並用兩個不同裝置走完整局。
 - 在 iOS／Android 實機與 VoiceOver／TalkBack 檢查無障礙操作，收集玩家回饋。
 - 建立人工檢舉審查、玩家聯絡及緊急升級流程；完成前不得宣稱檢舉有人即時處理。
-- 在正式 Supabase 專案和兩部不同裝置驗證 Auth、migration、RLS、Realtime、清理排程、封鎖及檢舉。
+- 部署帳號刪除 Edge Function，設定並驗證允許的 origin 後再啟用前端按鈕。
+- 在正式 Supabase 專案和兩部不同裝置驗證 Auth、migration、RLS、Realtime、清理排程、封鎖、檢舉及帳號刪除。
 - 依公開服務地區覆核隱私告知與資料保存政策，並做行動裝置及讀屏檢查。

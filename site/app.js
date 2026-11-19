@@ -1362,7 +1362,10 @@
     const message = $("[data-auth-status]");
     const anonymousButton = $("[data-auth-anonymous]");
     const signOutButton = $("[data-auth-signout]");
+    const deleteAccountButton = $("[data-auth-delete-account]");
+    const deleteAccountNote = $("[data-auth-delete-note]");
     const user = authState.session?.user || null;
+    const accountDeletionEnabled = authState.config?.accountDeletionEnabled === true;
     const hasPublicConfig = Boolean(authState.config?.url && authState.config?.anonKey);
     const hasSdk = typeof window.supabase?.createClient === "function";
 
@@ -1398,6 +1401,12 @@
       : "匿名登入";
     signOutButton.classList.toggle("hidden", !user);
     signOutButton.disabled = authState.busy;
+    deleteAccountButton.classList.toggle("hidden", !user);
+    deleteAccountButton.disabled = authState.busy || !accountDeletionEnabled;
+    deleteAccountNote.classList.toggle("hidden", !user);
+    deleteAccountNote.textContent = accountDeletionEnabled
+      ? "刪除會移除帳號、個人歷史及封鎖清單；已送出的檢舉會去除帳號連結，說明最多保留 180 天。"
+      : "自助刪除尚未部署到 Supabase；完成 Edge Function 設定後才會啟用。";
 
     $$("[data-auth-provider]").forEach((button) => {
       const name = button.dataset.authProvider;
@@ -1570,6 +1579,38 @@
     } catch (error) {
       console.warn("Sign-out failed", error);
       authState.notice = "登出沒有完成，請稍後重試。";
+    } finally {
+      authState.busy = false;
+      refreshAuthPanel();
+    }
+  }
+
+  async function deleteAccount() {
+    if (!authState.client || !authState.session?.user?.id || authState.busy ||
+        authState.config?.accountDeletionEnabled !== true) return;
+    const confirmed = window.confirm(
+      "永久刪除這個帳號？這會清除你的歷史紀錄和封鎖清單。既有檢舉會移除帳號連結，但說明最多保留 180 天。此操作無法復原。"
+    );
+    if (!confirmed) return;
+
+    const userId = authState.session.user.id;
+    authState.busy = true;
+    authState.notice = "正在刪除帳號和個人資料…";
+    refreshAuthPanel();
+    try {
+      const { data, error } = await authState.client.functions.invoke("delete-account", { body: {} });
+      if (error) throw error;
+      if (data?.status !== "deleted") throw new Error("Unexpected account deletion response");
+      try {
+        await authState.client.auth.signOut({ scope: "local" });
+      } catch (error) {
+        console.warn("Could not clear the deleted account's local session", error);
+      }
+      if (authState.session?.user?.id === userId) authState.session = null;
+      authState.notice = "帳號已刪除；你的歷史和封鎖清單已清除，檢舉說明會依期限刪除。";
+    } catch (error) {
+      console.warn("Account deletion failed", error);
+      authState.notice = "帳號刪除沒有完成。請確認 Supabase 已部署刪除帳號函式並設定允許的網站來源。";
     } finally {
       authState.busy = false;
       refreshAuthPanel();
@@ -2005,6 +2046,7 @@
 
   $("[data-auth-anonymous]").addEventListener("click", signInAnonymously);
   $("[data-auth-signout]").addEventListener("click", signOut);
+  $("[data-auth-delete-account]").addEventListener("click", deleteAccount);
   $$("[data-auth-provider]").forEach((button) => {
     button.addEventListener("click", () => signInOrLinkProvider(button.dataset.authProvider));
   });
