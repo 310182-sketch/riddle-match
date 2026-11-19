@@ -65,3 +65,15 @@
 - **經驗：** 如果把答題結果寫進玩家可訂閱的即時資料列，另一位玩家可能在自己作答前讀到答案。事件只需通知房間進度變了；敏感答案應由伺服器函式檢查玩家身分和同房作答數，再決定是否回傳。
 - **適用範圍：** 多人遊戲、協作表單和需要同步狀態但不能過早揭露資料的即時應用。
 - **本專案做法：** Supabase migration 初稿只發布不含答案的房間狀態；答案表不授予用戶端直接讀取權限，RPC 設計為兩人都答完才回傳雙方選擇。此設計尚未套用到 Supabase，RLS、Realtime publication 和函式權限仍需在實際專案驗證。
+
+## Web Share API 分享圖片需要先準備好檔案
+
+- **經驗：** 行動瀏覽器的 Web Share API 可能要求使用者點擊時仍保有啟用狀態。先產生 PNG 檔案，再在點擊處理器中同步檢查 navigator.canShare({ files }) 並呼叫 navigator.share()，比點擊後才開始繪圖更可靠。使用者取消分享應保持安靜；功能不可用或發生錯誤時再提供下載備援。
+- **適用範圍：** 透過手機系統分享選單傳送圖片、檔案或其他內容到社群 App 的網站。
+- **本專案做法：** 結果頁顯示時以 Canvas 預先產生 1080×1920 PNG；使用者按分享時交給系統面板，另有明確的下載按鈕。若使用者取消，網站不下載、不代替發布。Instagram 是否出現在分享面板仍須以安裝了 Instagram 的實機驗證。
+
+## GitHub Pages 工作流程不代表分支已獲准部署
+
+- **經驗：** GitHub Actions 可以因 push 正常觸發，仍在部署步驟開始前被環境保護規則拒絕。此時先讀取 Actions check-run annotations，確認分支是否列在部署環境的允許清單，再判斷是否要修改 workflow。
+- **適用範圍：** 透過 GitHub Pages environment 或其他有分支保護規則的 GitHub Actions 部署。
+- **本專案做法：** codex/commonality-quiz-prototype 的 workflow 已觸發，但 github-pages environment 禁止此分支。推薦在 GitHub environment 允許此功能分支後重跑；不要只根據 workflow 已觸發就將網站標成已發布。

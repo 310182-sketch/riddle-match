@@ -46,12 +46,17 @@
 
 ## Instagram 限時動態分享
 
-- **狀態：** 已納入路線圖，尚未實作。
+- **狀態：** 已在本機原型實作，尚未在 iOS／Android 實機驗證。
 - **決定：** 結果頁產生 9:16 PNG 分享卡；玩家主動按下分享後呼叫裝置分享面板，由玩家選擇 Instagram 並自行確認發布。若瀏覽器不支援分享檔案或沒有 Instagram 分享目標，提供 PNG 下載。
+- **實作：** 原型已用 Canvas 產生 1080×1920 PNG，提供分享面板與下載按鈕。使用者取消系統分享時不自動下載；分享失敗或瀏覽器不支援時提供 PNG 備援。
 - **內容界線：** 分享卡只包含主題、共同答案和品牌；不放匿名帳號 ID、登入資料或聯絡資訊。示範模式需標示答案是模擬資料。
 - **待驗證：** 在 iOS／Android 裝置上確認分享面板與 Instagram 限時動態的交接及下載備援。
 
 ## 發布
+
+- **現況：** 功能分支的部署 workflow 已觸發，但被 GitHub Pages 的 github-pages environment protection rules 拒絕；本分支尚未發布。
+- **原因：** Actions 註解指出 codex/commonality-quiz-prototype 不在允許部署的分支規則內，失敗發生於工作步驟開始前。
+- **推薦：** 在 GitHub repository 的 github-pages environment 允許 codex/commonality-quiz-prototype 部署，再重跑 workflow；只加入此分支即可保留現有環境保護。此設定變更需先取得使用者確認。
 
 - **狀態：** 本分支的 GitHub Pages 發布尚未完成。
 - **決定：** 保留遠端 `main` 的猜謎版本，先發布本分支的二選一原型並確認 Actions 與公開網址；真人後端及權限驗證完成後再發布連線版本。

@@ -38,7 +38,9 @@
     nickname: "小星",
     questionIndex: 0,
     answers: [],
-    matchTimer: null
+    matchTimer: null,
+    shareFile: null,
+    shareCardVersion: 0
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -74,6 +76,8 @@
 
   function startMatching() {
     window.clearTimeout(state.matchTimer);
+    state.shareCardVersion += 1;
+    state.shareFile = null;
     state.questionIndex = 0;
     state.answers = [];
     state.nickname = ($("#nickname").value.trim() || "小星").slice(0, 12);
@@ -168,6 +172,184 @@
     $("[data-empty-result]").classList.toggle("hidden", matchedIndexes.length > 0);
     list.classList.toggle("hidden", matchedIndexes.length === 0);
     showView("results", true);
+    prepareShareCard(questions, matchedIndexes);
+  }
+
+  function roundedRect(context, x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    context.beginPath();
+    context.moveTo(x + r, y);
+    context.arcTo(x + width, y, x + width, y + height, r);
+    context.arcTo(x + width, y + height, x, y + height, r);
+    context.arcTo(x, y + height, x, y, r);
+    context.arcTo(x, y, x + width, y, r);
+    context.closePath();
+  }
+
+  function createShareCard(questions, matchedIndexes) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1920;
+    const context = canvas.getContext("2d");
+    if (!context) return Promise.reject(new Error("無法建立分享圖片"));
+
+    context.fillStyle = "#f7f4ee";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "#edf1e8";
+    context.beginPath();
+    context.arc(940, 330, 250, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = "#f1e8d8";
+    context.beginPath();
+    context.arc(80, 1580, 240, 0, Math.PI * 2);
+    context.fill();
+
+    context.fillStyle = "#536d4d";
+    roundedRect(context, 88, 86, 74, 74, 22);
+    context.fill();
+    context.fillStyle = "#ffffff";
+    context.font = "700 38px 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText("同", 125, 124);
+    context.textAlign = "left";
+    context.fillStyle = "#252820";
+    context.font = "700 42px 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
+    context.fillText("同頻", 184, 126);
+    context.fillStyle = "#777d70";
+    context.font = "500 22px 'DM Sans', sans-serif";
+    context.textAlign = "right";
+    context.fillText("示範對局", 992, 126);
+
+    context.textAlign = "center";
+    roundedRect(context, 421, 360, 238, 66, 33);
+    context.fillStyle = "#ffffffcc";
+    context.fill();
+    context.fillStyle = "#536d4d";
+    context.font = "600 28px 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
+    context.fillText(state.topic + " 主題", 540, 393);
+
+    context.fillStyle = "#777d70";
+    context.font = "500 28px 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
+    context.fillText("這一局，你們找到", 540, 535);
+    context.fillStyle = "#252820";
+    context.font = "700 76px 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
+    context.fillText(String(matchedIndexes.length) + " 個共同點", 540, 650);
+    context.fillStyle = "#536d4d";
+    context.font = "700 42px 'DM Sans', sans-serif";
+    context.fillText(String(matchedIndexes.length) + " / " + String(questions.length), 540, 750);
+    context.fillStyle = "#777d70";
+    context.font = "500 22px 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
+    context.fillText("相同選擇題數", 540, 795);
+
+    if (matchedIndexes.length) {
+      context.textAlign = "left";
+      context.fillStyle = "#777d70";
+      context.font = "600 22px 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
+      context.fillText("你們都這樣選", 94, 900);
+      matchedIndexes.forEach((index, position) => {
+        const y = 946 + position * 138;
+        const question = questions[index];
+        roundedRect(context, 88, y, 904, 116, 22);
+        context.fillStyle = "#fffefa";
+        context.fill();
+        context.fillStyle = "#b4834c";
+        context.font = "600 19px 'DM Sans', sans-serif";
+        context.fillText("0" + String(position + 1), 120, y + 36);
+        context.fillStyle = "#777d70";
+        context.font = "500 18px 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
+        context.fillText(question.prompt, 174, y + 36, 770);
+        context.fillStyle = "#3b5439";
+        context.font = "700 27px 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
+        context.fillText(question.choices[state.answers[index].player], 174, y + 80, 770);
+      });
+    } else {
+      roundedRect(context, 88, 950, 904, 190, 24);
+      context.fillStyle = "#fffefa";
+      context.fill();
+      context.fillStyle = "#3b5439";
+      context.font = "600 32px 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
+      context.textAlign = "center";
+      context.fillText("答案不同，也多認識了一點彼此。", 540, 1045, 820);
+      context.fillStyle = "#777d70";
+      context.font = "500 22px 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
+      context.fillText("每個選擇，都是一個新的話題。", 540, 1100, 820);
+    }
+
+    context.textAlign = "center";
+    context.fillStyle = "#777d70";
+    context.font = "500 24px 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
+    context.fillText("一個選擇，發現一點相同", 540, 1798);
+    context.fillStyle = "#b4834c";
+    context.font = "600 21px 'DM Sans', sans-serif";
+    context.fillText("tongpin", 540, 1842);
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error("無法輸出分享圖片"));
+          return;
+        }
+        resolve(new File([blob], "tongpin-result.png", { type: "image/png" }));
+      }, "image/png");
+    });
+  }
+
+  function prepareShareCard(questions, matchedIndexes) {
+    const version = ++state.shareCardVersion;
+    const shareButton = $("[data-share-result]");
+    const downloadButton = $("[data-download-result]");
+    state.shareFile = null;
+    shareButton.disabled = true;
+    downloadButton.disabled = true;
+
+    createShareCard(questions, matchedIndexes).then((file) => {
+      if (version !== state.shareCardVersion) return;
+      state.shareFile = file;
+      shareButton.disabled = false;
+      downloadButton.disabled = false;
+    }).catch(() => {
+      if (version !== state.shareCardVersion) return;
+      announce("分享圖片暫時無法產生，請重新查看結果。");
+    });
+  }
+
+  function downloadShareCard() {
+    if (!state.shareFile) return;
+    const url = URL.createObjectURL(state.shareFile);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = state.shareFile.name;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function shareResult() {
+    const file = state.shareFile;
+    if (!file) return;
+    const files = [file];
+    let canShareFiles = false;
+    try {
+      canShareFiles = Boolean(navigator.share && navigator.canShare && navigator.canShare({ files }));
+    } catch {}
+    if (!canShareFiles || !navigator.share) {
+      downloadShareCard();
+      announce("此瀏覽器無法直接分享圖片，已下載 PNG。");
+      return;
+    }
+
+    const handleShareError = (error) => {
+      if (error && error.name === "AbortError") return;
+      downloadShareCard();
+      announce("分享沒有完成，已下載 PNG 作為備份。");
+    };
+    try {
+      navigator.share({ files, title: "同頻｜二選一共同點" }).catch(handleShareError);
+    } catch (error) {
+      handleShareError(error);
+    }
   }
 
   function announce(message) {
@@ -225,6 +407,8 @@
   });
 
   $("[data-play-again]").addEventListener("click", startMatching);
+  $("[data-share-result]").addEventListener("click", shareResult);
+  $("[data-download-result]").addEventListener("click", downloadShareCard);
 
   $$("[data-show-help]").forEach((button) => {
     button.addEventListener("click", () => modal.showModal());
