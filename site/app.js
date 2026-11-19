@@ -156,9 +156,17 @@
     $("[data-opponent-avatar]").textContent = "島";
     $("[data-opponent-mode]").textContent = "示範玩家";
     $("[data-demo-disclaimer]").classList.remove("hidden");
-    $("[data-match-title]").innerHTML = demoMode
-      ? "一個好問題，<br><span>從一位新朋友開始。</span>"
-      : "等待一位玩家，<br><span>一起探索共同點。</span>";
+    const matchTitle = $("[data-match-title]");
+    const matchTitleHighlight = document.createElement("span");
+    const matchTitleLead = demoMode ? "一個好問題，" : "等待一位玩家，";
+    matchTitleHighlight.textContent = demoMode
+      ? "從一位新朋友開始。"
+      : "一起探索共同點。";
+    matchTitle.replaceChildren(
+      document.createTextNode(matchTitleLead),
+      document.createElement("br"),
+      matchTitleHighlight,
+    );
     $("[data-match-eyebrow]").textContent = liveQueue ? "真人隨機配對" : "配對流程預覽";
     $("[data-match-caption]").textContent = liveQueue
       ? "正在安全佇列中尋找主題相近的玩家…"
