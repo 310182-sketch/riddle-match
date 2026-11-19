@@ -4,14 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f7f4ee">
-    <meta name="description" content="和陌生人玩二選一問答，在每個選擇裡找到共同點。">
+    <meta name="description" content="用二選一問答發現彼此的共同點。">
     <title>同頻｜二選一共同點遊戲</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=6">
-    <script src="app.js?v=2" defer></script>
+    <link rel="stylesheet" href="styles.css?v=7">
+    <script src="app.js?v=3" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -31,8 +31,8 @@
           <div class="hero-copy">
             <p class="eyebrow"><span class="sparkle" aria-hidden="true">✳</span> 二選一共同點遊戲</p>
             <h1 id="home-title" tabindex="-1" data-focus-target>從一個選擇，<br><span>發現一點相同。</span></h1>
-            <p class="hero-description">和一位陌生人配對，回答同一個主題的小問題。<br class="desktop-break">每題答完就揭曉，看看你們在哪些地方很有默契。</p>
-            <div class="hero-note"><span aria-hidden="true">✦</span> 不用註冊，先玩一局看看</div>
+            <p class="hero-description">邀請朋友，或透過隨機配對認識新玩家。<br class="desktop-break">回答同一主題的小問題，看看你們在哪些地方很有默契。</p>
+            <div class="hero-note"><span aria-hidden="true">✦</span> 先試玩互動原型，不需要註冊</div>
 
             <form class="entry-card" data-start-form>
               <div class="entry-heading">
@@ -52,8 +52,24 @@
                   <button class="topic-choice random-choice is-selected" type="button" data-topic-choice="隨機" aria-pressed="true"><span aria-hidden="true">✳</span>隨機主題</button>
                 </div>
               </fieldset>
-              <button class="primary-button start-button" type="submit"><span>開始配對</span><span class="button-arrow" aria-hidden="true">↗</span></button>
-              <p class="privacy-note">暱稱只在這次示範中顯示，不會送出或保存。</p>
+              <div class="entry-methods">
+                <button class="primary-button" type="button" data-random-match><span>隨機配對</span><span class="button-arrow" aria-hidden="true">↗</span></button>
+                <button class="secondary-button" type="button" data-create-room>建立邀請房</button>
+              </div>
+              <button class="join-toggle" type="button" data-toggle-join aria-expanded="false" aria-controls="join-room-panel">輸入房間代碼加入</button>
+              <div class="join-room-panel hidden" id="join-room-panel" data-join-panel>
+                <label class="field-label" for="invite-code">房間代碼 <span>12 位數字或 A–F</span></label>
+                <div class="join-room-controls">
+                  <input class="text-input invite-code-input" id="invite-code" type="text" maxlength="12" inputmode="text" autocomplete="off" spellcheck="false" placeholder="例如 8F2A19C04B7D">
+                  <button class="primary-button" type="button" data-join-room>加入</button>
+                </div>
+                <p class="privacy-note">目前只示範代碼輸入畫面，尚未連接房間服務。</p>
+              </div>
+              <button class="demo-start-button" type="button" data-demo-start>先玩一局示範</button>
+              <div class="entry-footer">
+                <p class="privacy-note">目前所有流程都是本機示範，不會建立真人房間或保存紀錄。</p>
+                <button class="history-link" type="button" data-open-history>查看歷史紀錄與默契統計 <span aria-hidden="true">→</span></button>
+              </div>
             </form>
           </div>
 
@@ -74,13 +90,54 @@
 
         <section id="matching" class="view matching-view hidden" data-view="matching" aria-live="polite">
           <div class="match-orbit" aria-hidden="true"><span class="orbit orbit-one"></span><span class="orbit orbit-two"></span><span class="match-center">同</span><span class="orbit-dot dot-a">✦</span><span class="orbit-dot dot-b">?</span></div>
-          <p class="eyebrow centered-eyebrow"><span class="pulse-dot" aria-hidden="true"></span> 正在為你配對</p>
-          <h2 tabindex="-1" data-focus-target>一個好問題，<br><span>從一位新朋友開始。</span></h2>
+          <p class="eyebrow centered-eyebrow"><span class="pulse-dot" aria-hidden="true"></span> 配對流程預覽</p>
+          <h2 tabindex="-1" data-focus-target data-match-title>一個好問題，<br><span>從一位新朋友開始。</span></h2>
           <p class="match-subtitle">本局主題：<b data-match-topic>旅行</b></p>
-          <div class="match-progress" aria-hidden="true"><span></span></div>
-          <p class="match-caption">正在尋找想玩同一主題的人…</p>
-          <p class="demo-inline-note">原型展示會使用示範玩家完成流程</p>
+          <div class="match-progress" data-match-progress aria-hidden="true"><span></span></div>
+          <p class="match-caption" data-match-caption>正在尋找想玩同一主題的人…</p>
+          <p class="demo-inline-note" data-match-note>這裡會展示配對畫面；目前尚未連接真人配對佇列。</p>
+          <p class="match-timeout-note">真人配對等候上限為 30 秒，後端串接後啟用。</p>
+          <button class="primary-button hidden" type="button" data-use-demo><span>使用示範玩家繼續</span><span class="button-arrow" aria-hidden="true">↗</span></button>
           <button class="text-button" type="button" data-cancel>返回首頁</button>
+        </section>
+
+        <section id="invite-room" class="view workflow-view hidden" data-view="invite-room" aria-labelledby="invite-room-title">
+          <button class="back-button workflow-back" type="button" data-home>← <span>回首頁</span></button>
+          <div class="workflow-mark" aria-hidden="true">⌂</div>
+          <p class="eyebrow centered-eyebrow">邀請朋友一起玩</p>
+          <h1 id="invite-room-title" data-focus-target tabindex="-1" data-room-title>你的邀請房間已準備好</h1>
+          <p class="workflow-copy" data-room-status>把代碼分享給朋友，對方加入後就能開始。</p>
+          <div class="invite-code-card">
+            <span>房間代碼</span>
+            <strong data-room-code>000000000000</strong>
+            <button class="secondary-button" type="button" data-copy-room-code>複製代碼</button>
+          </div>
+          <p class="workflow-note" data-room-note>示範代碼僅供預覽，其他裝置目前無法使用。</p>
+          <div class="workflow-meta"><span>等待時間</span><b>10 分鐘</b></div>
+          <div class="workflow-actions">
+            <button class="primary-button" type="button" data-room-demo><span>先玩示範對局</span><span class="button-arrow" aria-hidden="true">↗</span></button>
+            <button class="text-button" type="button" data-home>回到首頁</button>
+          </div>
+        </section>
+
+        <section id="history" class="view workflow-view history-view hidden" data-view="history" aria-labelledby="history-title">
+          <button class="back-button workflow-back" type="button" data-home>← <span>回首頁</span></button>
+          <div class="workflow-mark" aria-hidden="true">✦</div>
+          <p class="eyebrow centered-eyebrow">保存你的每個小發現</p>
+          <h1 id="history-title" data-focus-target tabindex="-1">歷史紀錄與默契統計</h1>
+          <p class="workflow-copy">只對你本人顯示最近 90 天的紀錄。</p>
+          <div class="history-grid">
+            <section class="history-panel" aria-labelledby="history-list-title">
+              <div class="history-panel-heading"><h2 id="history-list-title">最近對局</h2><span>90 天</span></div>
+              <div class="history-empty"><span aria-hidden="true">◷</span><b>目前沒有已保存的對局</b><p>完成已連線的真人對局後，這裡會顯示主題、對手、共同題數與相同選擇。</p></div>
+            </section>
+            <section class="history-panel" aria-labelledby="ranking-title">
+              <div class="history-panel-heading"><h2 id="ranking-title">最有默契</h2><span>個人統計</span></div>
+              <div class="history-empty"><span aria-hidden="true">♡</span><b>累積幾場對局再來看看</b><p>和同一位玩家完成至少 3 局後，會依共同答案比例排序，並列出對局數與共同答案數。</p></div>
+            </section>
+          </div>
+          <p class="workflow-note">目前登入與資料庫尚未連線，頁面不會保存或查詢真實紀錄。</p>
+          <button class="primary-button workflow-primary" type="button" data-home><span>回到首頁</span><span class="button-arrow" aria-hidden="true">↗</span></button>
         </section>
 
         <section id="game" class="view game-view hidden" data-view="game" aria-labelledby="game-title">
@@ -166,7 +223,7 @@
       <span class="modal-mark" aria-hidden="true">同</span>
       <p class="eyebrow centered-eyebrow">HOW TO PLAY</p>
       <h2 id="modal-title">用兩個選項，找到一點共鳴</h2>
-      <p class="modal-copy">選擇主題後，和一位陌生人玩五題二選一。雙方完成每題後就會揭曉答案，最後看看你們有幾個相同選擇。現在的配對與對方答案由示範資料模擬，沒有連接真人或儲存個人資料。</p>
+      <p class="modal-copy">選擇主題後，可以建立邀請房、輸入代碼或預覽隨機配對。完成五題後會揭曉共同選擇。現階段房間、配對與歷史頁都是操作示意；尚未連接真人服務或保存資料。</p>
       <button class="primary-button modal-action" type="button" data-close-modal>知道了</button>
     </dialog>
     <div class="toast" data-toast role="status" aria-live="polite"></div>

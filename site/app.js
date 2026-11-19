@@ -36,6 +36,7 @@
     topicChoice: "隨機",
     topic: "旅行",
     nickname: "小星",
+    matchMode: "demo",
     questionIndex: 0,
     answers: [],
     matchTimer: null,
@@ -74,20 +75,86 @@
     return state.topic;
   }
 
-  function startMatching() {
+  function startMatching(mode = "demo") {
     window.clearTimeout(state.matchTimer);
     state.shareCardVersion += 1;
     state.shareFile = null;
+    state.matchMode = mode;
     state.questionIndex = 0;
     state.answers = [];
     state.nickname = ($("#nickname").value.trim() || "小星").slice(0, 12);
     chooseTopic();
     $("[data-match-topic]").textContent = state.topic;
+    const demoMode = mode === "demo";
+    $("[data-match-title]").innerHTML = demoMode
+      ? "一個好問題，<br><span>從一位新朋友開始。</span>"
+      : "等待一位玩家，<br><span>一起探索共同點。</span>";
+    $("[data-match-caption]").textContent = demoMode
+      ? "正在準備本機範例對局…"
+      : "真人配對服務尚未連線，現在不會進入真實佇列。";
+    $("[data-match-note]").textContent = demoMode
+      ? "這場示範會使用本機範例玩家與答案。"
+      : "此為配對等待畫面預覽；加入 30 秒等候上限及跨裝置配對後才會啟用。";
+    $("[data-match-progress]").classList.toggle("is-preview", !demoMode);
+    $("[data-use-demo]").classList.toggle("hidden", demoMode);
     showView("matching", true);
-    state.matchTimer = window.setTimeout(() => {
-      renderQuestion();
-      showView("game", true);
-    }, 900);
+    if (demoMode) state.matchTimer = window.setTimeout(startDemoGame, 900);
+  }
+
+  function startDemoGame() {
+    window.clearTimeout(state.matchTimer);
+    renderQuestion();
+    showView("game", true);
+  }
+
+  function createDemoInviteCode() {
+    const alphabet = "0123456789ABCDEF";
+    let code = "";
+    for (let index = 0; index < 12; index += 1) {
+      code += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+    return code;
+  }
+
+  function showRoomPreview(code, joined = false) {
+    $("[data-room-title]").textContent = joined ? "房間代碼已輸入" : "邀請房間已建立";
+    $("[data-room-status]").textContent = joined
+      ? "真人房間驗證尚未連線，這裡不會確認代碼是否有效。"
+      : "把代碼分享給朋友，對方加入後就能開始。";
+    $("[data-room-code]").textContent = code;
+    $("[data-room-note]").textContent = joined
+      ? "這是加入流程預覽；目前未連線伺服器，也未加入任何房間。"
+      : "這是本機示範代碼，其他裝置目前無法使用。";
+    $("[data-copy-room-code]").classList.toggle("hidden", joined);
+    showView("invite-room", true);
+  }
+
+  function openDemoRoom() {
+    state.nickname = ($("#nickname").value.trim() || "小星").slice(0, 12);
+    chooseTopic();
+    showRoomPreview(createDemoInviteCode());
+  }
+
+  function joinDemoRoom() {
+    const input = $("#invite-code");
+    const code = input.value.trim().toUpperCase();
+    if (!/^[0-9A-F]{12}$/.test(code)) {
+      announce("請輸入 12 位數字或 A–F 組成的代碼。");
+      input.focus();
+      return;
+    }
+    state.nickname = ($("#nickname").value.trim() || "小星").slice(0, 12);
+    showRoomPreview(code, true);
+  }
+
+  async function copyDemoInviteCode() {
+    const code = $("[data-room-code]").textContent;
+    try {
+      await navigator.clipboard.writeText(code);
+      announce("示範代碼已複製。");
+    } catch {
+      announce("複製功能無法使用，請手動記下代碼。");
+    }
   }
 
   function updateProgress() {
@@ -372,8 +439,33 @@
 
   $("[data-start-form]").addEventListener("submit", (event) => {
     event.preventDefault();
-    startMatching();
+    startMatching("demo");
   });
+
+  $("[data-demo-start]").addEventListener("click", () => startMatching("demo"));
+  $("[data-random-match]").addEventListener("click", () => startMatching("random"));
+  $("[data-create-room]").addEventListener("click", openDemoRoom);
+  $("[data-toggle-join]").addEventListener("click", (event) => {
+    const panel = $("[data-join-panel]");
+    const expanded = event.currentTarget.getAttribute("aria-expanded") === "true";
+    event.currentTarget.setAttribute("aria-expanded", String(!expanded));
+    panel.classList.toggle("hidden", expanded);
+    if (!expanded) $("#invite-code").focus();
+  });
+  $("[data-join-room]").addEventListener("click", joinDemoRoom);
+  $("#invite-code").addEventListener("input", (event) => {
+    event.currentTarget.value = event.currentTarget.value.replace(/[^0-9a-f]/gi, "").toUpperCase().slice(0, 12);
+  });
+  $("#invite-code").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      joinDemoRoom();
+    }
+  });
+  $("[data-copy-room-code]").addEventListener("click", copyDemoInviteCode);
+  $("[data-room-demo]").addEventListener("click", () => startMatching("demo"));
+  $("[data-use-demo]").addEventListener("click", startDemoGame);
+  $("[data-open-history]").addEventListener("click", () => showView("history", true));
 
   $$(".answer-option").forEach((button) => {
     button.addEventListener("click", () => {
@@ -406,7 +498,7 @@
     });
   });
 
-  $("[data-play-again]").addEventListener("click", startMatching);
+  $("[data-play-again]").addEventListener("click", () => startMatching("demo"));
   $("[data-share-result]").addEventListener("click", shareResult);
   $("[data-download-result]").addEventListener("click", downloadShareCard);
 

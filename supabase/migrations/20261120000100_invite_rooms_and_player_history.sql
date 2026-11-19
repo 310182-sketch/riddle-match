@@ -799,6 +799,8 @@ begin
   if pg_catalog.to_regclass('cron.job') is not null then
     execute 'select cron.schedule($1, $2)'
       using '*/15 * * * *', 'select private.purge_expired_game_data()';
+  else
+    raise notice 'pg_cron is unavailable; schedule private.purge_expired_game_data() before launch.';
   end if;
 exception
   when insufficient_privilege or undefined_function then
