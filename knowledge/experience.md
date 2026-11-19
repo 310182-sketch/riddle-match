@@ -48,6 +48,12 @@
 - **適用範圍：** 使用 Git for Windows 推送 commit、建立 repository 或查詢 Actions 時。
 - **本專案做法：** 使用已授權的 Git Credential Manager。開始改動前先檢查目前分支與 remote；遠端產品方向不同時，先用獨立分支保留原有 main。
 
+## 非互動 Git shell 遇到 helper-selector 時改用已安裝的 Credential Manager
+
+- **經驗：** Windows PortableGit 的 helper-selector 在沒有可互動終端時可能停在選擇憑證 helper 的階段，push 沒有輸出但 Git 程序仍在執行。逐一終止自己啟動的停滯程序後，可用單次命令清空既有 helper 清單並指定已安裝的 Git Credential Manager；這仍使用既有安全憑證儲存，不需把 token 放在命令列。
+- **適用範圍：** Windows PortableGit、非互動執行環境，且全域 credential.helper 設為 helper-selector 的 Git 操作。
+- **本專案做法：** 使用 git -c credential.helper= -c credential.helper='<Git Credential Manager executable path>' push <remote> <branch>，把路徑換成本機安裝位置；若沒有有效登入憑證，仍須由使用者完成官方登入流程。
+
 ## 本機預覽也可能載入舊版樣式
 
 - **經驗：** 反覆在同一個 localhost 網址預覽時，嵌入式瀏覽器可能沿用先前快取的同名 CSS。畫面部分樣式正常、不代表新樣式已載入。
@@ -77,3 +83,9 @@
 - **經驗：** GitHub Actions 可以因 push 正常觸發，仍在部署步驟開始前被環境保護規則拒絕。此時先讀取 Actions check-run annotations，確認分支是否列在部署環境的允許清單，再判斷是否要修改 workflow。
 - **適用範圍：** 透過 GitHub Pages environment 或其他有分支保護規則的 GitHub Actions 部署。
 - **本專案做法：** codex/commonality-quiz-prototype 的 workflow 已觸發，但 github-pages environment 禁止此分支。推薦在 GitHub environment 允許此功能分支後重跑；不要只根據 workflow 已觸發就將網站標成已發布。
+
+## 手機上的選項要留足點按空間，選取狀態不需雙重描邊
+
+- **經驗：** 多個選項擠在同一列時，窄螢幕會讓文字和點按區域變小；以粗重的內外雙描邊表示選取，也容易使選項在視覺上過度突出。分欄排列、明確的最低高度，以及柔和底色和單一邊框能同時保留辨識度與閱讀空間。
+- **適用範圍：** 手機表單、主題選擇、篩選器及多選一控制。
+- **本專案做法：** 桌面使用三欄、手機改兩欄並讓隨機選項佔滿一列；按鈕至少 48px 高，選取使用淡綠底色和較淡邊框。改版後仍需重跑窄螢幕與鍵盤流程檢查。
