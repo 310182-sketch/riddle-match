@@ -1,4 +1,7 @@
-import { Client } from "npm:pg@8.13.3";
+import pg from "npm:pg@8.13.3";
+
+const { Client } = pg;
+type PgClient = InstanceType<typeof Client>;
 
 const databaseUrl = Deno.env.get("DATABASE_URL");
 if (!databaseUrl) {
@@ -39,7 +42,7 @@ function assertEquals(actual: unknown, expected: unknown, message: string) {
   }
 }
 
-async function applyMigrations(admin: Client) {
+async function applyMigrations(admin: PgClient) {
   await admin.query(`
     create role anon nologin;
     create role authenticated nologin;
@@ -68,7 +71,7 @@ async function applyMigrations(admin: Client) {
   }
 }
 
-async function setAuthenticatedUser(client: Client, userId: string) {
+async function setAuthenticatedUser(client: PgClient, userId: string) {
   await client.query("begin");
   await client.query("set local role authenticated");
   await client.query(
@@ -79,11 +82,11 @@ async function setAuthenticatedUser(client: Client, userId: string) {
 
 Deno.test("a concurrent matchmaking RPC waits for an in-flight block write", async () => {
   const admin = await connect("block-race-admin");
-  let blocker: Client | null = null;
-  let matcher: Client | null = null;
+  let blocker: PgClient | null = null;
+  let matcher: PgClient | null = null;
   let blockerTransactionOpen = false;
   let matcherTransactionOpen = false;
-  let matchmakingPromise: ReturnType<Client["query"]> | null = null;
+  let matchmakingPromise: ReturnType<PgClient["query"]> | null = null;
 
   try {
     await applyMigrations(admin);
