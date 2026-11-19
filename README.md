@@ -69,7 +69,7 @@ deno test --allow-read --allow-net supabase/tests/migrations.test.ts
 
 ## GitHub Pages 部署
 
-Repository 的 `.github/workflows/pages.yml` 會將 `site/` 發布至 [GitHub Pages](https://310182-sketch.github.io/riddle-match/)。`github-pages` environment 保留分支保護，允許 `main` 和 `codex/commonality-quiz-prototype` 部署。最近一次 workflow run 28 attempt 2 成功；公開網址回應 HTTP 200 並顯示遊戲頁標題。此網站目前是原型，尚未設定 Supabase URL／key，真人登入及後端服務未啟用。
+Repository 的 `.github/workflows/pages.yml` 會將 `site/` 發布至 [GitHub Pages](https://310182-sketch.github.io/riddle-match/)。`github-pages` environment 保留分支保護，允許 `main` 和 `codex/commonality-quiz-prototype` 部署。workflow 已成功發布原型；公開網址回應 HTTP 200 並顯示遊戲頁標題。此網站目前是原型，尚未設定 Supabase URL／key，真人登入及後端服務未啟用。
 
 ## 文件
 
