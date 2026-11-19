@@ -290,8 +290,8 @@
         const seconds = Math.max(1, Math.ceil((attempt.expiresAt - Date.now()) / 1000));
         $("[data-match-caption]").textContent = `正在等待玩家加入佇列，約還有 ${seconds} 秒…`;
       }
-      $("[data-cancel]").disabled = false;
-      $("[data-cancel]").textContent = "取消配對";
+      $("[data-cancel]").disabled = attempt.cancelRequested === true;
+      $("[data-cancel]").textContent = attempt.cancelRequested === true ? "正在取消…" : "取消配對";
       startMatchStatusPoll(attempt);
       startMatchDeadline(attempt);
       return;
@@ -308,6 +308,12 @@
       return;
     }
     throw new Error("Unexpected matchmaking response");
+  }
+
+  function finishMatchmakingRequest(attempt) {
+    if (!matchingIsCurrent(attempt)) return;
+    state.matchmakingBusy = false;
+    if (attempt.cancelRequested) cancelMatchmaking();
   }
 
   async function pollMatchStatus(attempt) {
@@ -331,7 +337,7 @@
         startMatchStatusPoll(attempt, 3000);
       }
     } finally {
-      if (matchingIsCurrent(attempt)) state.matchmakingBusy = false;
+      finishMatchmakingRequest(attempt);
     }
   }
 
@@ -342,6 +348,7 @@
       operationId: ++state.matchmakingOperationId,
       userId,
       ticketId: null,
+      cancelRequested: false,
       expiresAt: Date.now() + 30000
     };
     state.matchmaking = attempt;
@@ -360,7 +367,7 @@
         showMatchmakingRetry("無法連線到配對服務，請確認登入及 Supabase 設定後重試。", "配對服務暫時無法使用");
       }
     } finally {
-      if (matchingIsCurrent(attempt)) state.matchmakingBusy = false;
+      finishMatchmakingRequest(attempt);
     }
   }
 
@@ -371,7 +378,14 @@
       showView("home", true);
       return;
     }
-    if (!attempt.ticketId || state.matchmakingBusy) return;
+    if (!attempt.ticketId) return;
+    if (state.matchmakingBusy) {
+      attempt.cancelRequested = true;
+      $("[data-cancel]").disabled = true;
+      $("[data-cancel]").textContent = "正在取消…";
+      return;
+    }
+    attempt.cancelRequested = false;
     state.matchmakingBusy = true;
     $("[data-cancel]").disabled = true;
     $("[data-cancel]").textContent = "正在取消…";

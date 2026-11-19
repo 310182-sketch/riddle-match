@@ -10,14 +10,14 @@
 
 ## 目前狀態
 
-- **階段：** 互動原型及第一輪瀏覽器版可用性檢查已完成；六份 Supabase migration 草稿、自助刪除帳號 Edge Function 和可重複執行的 PGlite migration 回歸測試已建立。前端已接上邀請房的真人答題、雙方完成才揭曉、雙方確認才前進、完局結果，以及隨機配對佇列、取消、30 秒逾時和重新排隊；Chrome mock 流程已驗證。另已加入玩家檢舉／封鎖、封鎖清單、隱私告知和受設定控制的刪除帳號入口；資料庫安全及刪除流程通過 PGlite 預檢。原型亦保留首頁、主題選擇、示範配對、五題作答和分享結果。
+- **階段：** 互動原型及第一輪瀏覽器版可用性檢查已完成；六份 Supabase migration 草稿、自助刪除帳號 Edge Function 和可重複執行的 PGlite migration 回歸測試已建立。前端已接上邀請房的真人答題、雙方完成才揭曉、雙方確認才前進、完局結果，以及隨機配對佇列、取消、30 秒逾時和重新排隊；Chrome mock 流程已驗證。headless Chrome 回歸測試也涵蓋狀態 RPC 執行中收到取消、取消回報已配對但尚無房間 ID，以及重新查詢後進入房間。另已加入玩家檢舉／封鎖、封鎖清單、隱私告知和受設定控制的刪除帳號入口；資料庫安全及刪除流程通過 PGlite 預檢。原型亦保留首頁、主題選擇、示範配對、五題作答和分享結果。
 - **已驗證：** Chrome headless 在 320、360、390、768、1024、1440px 檢查首頁、遊戲及結果頁，皆無水平溢出；以鍵盤在六種寬度完成五題流程。已改善選項字級、觸控尺寸、焦點提示及作答狀態語意。
 - **仍待線上驗證：** 工作區沒有 Supabase URL／公開 key，無法使用真實登入、房間或配對服務。邀請房答題與隨機配對前端已接上 RPC，並以 Chrome mock 驗證成功揭曉、雙方確認、結果讀取、配對成功、逾時重試及取消；尚未在 Supabase Realtime 或兩部裝置驗證。歷史頁查詢、分頁、默契排名及逐筆刪除 RPC 也已用 Chrome mock 驗證，但不能查詢真實對局。結果頁已能產生 1080×1920 PNG，支援系統分享面板及下載備援；尚未在 iOS／Android 實機確認 Instagram 交接。
 - **後端：** 本機 PGlite 預檢會自動依檔名排序並套用 `supabase/migrations/` 中所有 SQL migration；10 項可重複執行的回歸測試涵蓋 migration 權限、雙人揭曉與歷史、隨機配對相容／封鎖／取消、封鎖與配對／邀請加入共用交易鎖、歷史游標分頁與共同點排名門檻、本人歷史讀取與刪除權限、security-definer 函式固定空 `search_path` 且不能由匿名角色執行、24／90／180 天資料清理、配對／開房限量、檢舉，以及刪除帳號時關閉房間、移除本人歷史並匿名化對手歷史和檢舉帳號連結。run 53 的 PostgreSQL 16 多連線測試驗證封鎖、邀請加入、兩種配額，以及取消先鎖時配對略過、配對先鎖時取消回報 `matched`；這些檢查不等同 Supabase Auth、Realtime 或 RLS 驗證。自助刪除 Edge Function 已通過 Deno 型別、lint、格式檢查及 7 個本機 request 子測試。函式尚未部署，且尚未建立 Supabase 專案，線上 Auth、Realtime、清理排程和 Supabase 環境 RLS 仍未驗證。
 - **資料政策：** 真人房間、配對票券及原始答案最多保留 24 小時；個人歷史摘要保存 90 天且可逐筆刪除；檢舉資料保存 180 天；封鎖關係保留至解除或刪除帳號。這些是目前採用的 MVP 預設，尚未部署或在 Supabase 驗證。
 - **登入與社群：** 已加入可選的 Supabase Auth 前端入口，包含匿名登入、Google／Facebook／X OAuth、Instagram／Threads custom provider 設定、PKCE session 恢復及匿名帳號 identity linking。Chrome mock client 已驗證登入狀態和 provider 呼叫；尚無 Supabase URL／anon key，登入按鈕目前停用，live login／callback／帳號 linking 仍未設定或驗證。平台限制見 [knowledge/decision.md](decision.md)。
 - **前端設計：** 已完成第一輪整體字級、留白、按鈕及主題選項版面整理；房間、真人答題、隨機配對等待及歷史頁已接上 RPC，無設定時仍保留清楚標示的操作預覽。Chrome mock 驗證流程分支；六種寬度與鍵盤流程的前一輪檢查已通過。真人服務環境的實際網路狀態仍待驗證。
-- **發布：** 最新 run 54 的 verify、block_race 和 deploy 全部成功，公開網站已部署；run 48 曾遇到 `github-pages` artifact 讀取失敗，後續 run 49、50、53、54 均成功。真人登入和後端尚未設定，仍維持停用狀態。詳見 [run 54](https://github.com/310182-sketch/riddle-match/actions/runs/44624659153) 和 [公開網站](https://310182-sketch.github.io/riddle-match/)。
+- **發布：** run 54、55 的 verify、block_race 和 deploy 全部成功，公開網站已部署；run 48 曾遇到 `github-pages` artifact 讀取失敗，後續 run 49、50、53、54、55 均成功。真人登入和後端尚未設定，仍維持停用狀態。詳見 [run 55](https://github.com/310182-sketch/riddle-match/actions/runs/44625031955) 和 [公開網站](https://310182-sketch.github.io/riddle-match/)。
 - **安全營運：** 前端及後端草稿已提供同房檢舉、封鎖與解除封鎖、服務端配對／開房限量及隱私告知。此原型沒有人工審查人員或支援聯絡方式；正式公開前須建立案件審查、聯絡和緊急處理流程，不能宣稱檢舉會即時有人處理。
 - **工作區：** 原型位於 `site/`，可直接開啟 `site/index.html` 操作，不需安裝套件或建置。
 - **產品方向：** 遠端 `main` 保留原有猜謎版本；本分支依本計畫製作二選一共同點遊戲，詳見 [knowledge/decision.md](decision.md)。
@@ -91,7 +91,7 @@
 - [x] 加入建立邀請房、複製示範代碼及輸入房間代碼的前端預覽；畫面清楚說明尚未建立跨裝置房間。
 - [x] 在已登入且已設定 Supabase 時接上 `create_invite_room`、`join_invite_room` RPC；保留無設定時的明確示範模式，顯示服務回傳的代碼與加入狀態。
 - [x] 房主以 `get_invite_room_status` 輪詢對方加入及失效狀態；使用者離房時呼叫 `leave_room`，Chrome mock 驗證建立、加入、配對、離房與逾期流程。
-- [x] 加入隨機配對等待、取消及逾時狀態；接上 `queue_for_match`、`get_match_status`、`cancel_matchmaking`，處理 30 秒逾時、重新排隊及配對後進入真人房間，Chrome mock 驗證成功、逾時與取消分支。
+- [x] 加入隨機配對等待、取消及逾時狀態；接上 `queue_for_match`、`get_match_status`、`cancel_matchmaking`，處理 30 秒逾時、重新排隊及配對後進入真人房間；headless Chrome 回歸測試確認狀態查詢尚未完成時點取消會保留操作，若取消回報已配對但缺少房間 ID，後續狀態查詢仍會將玩家帶入房間。
 - [x] 設計歷史紀錄與共同點統計頁的空狀態，說明 90 天範圍、三局門檻和本人可見規則。
 - [x] 將歷史頁接上本人最近 90 天的對局清單、共同選擇、50 筆游標分頁、默契排名及逐筆刪除 RPC。
 - [x] 以 Chrome mock RPC 驗證載入、空清單、錯誤重試、分頁、刪除後刷新、登出清除資料、切換帳號時丟棄舊請求，以及動態文字不會被解讀為 HTML；狀態標題改用 DOM 節點與 `textContent`，不保留 `innerHTML` 插值入口。
@@ -123,7 +123,8 @@
 - [x] 在 PostgreSQL 16 多連線整合測試驗證取消與配對競爭同一張等待票券：取消先取得列鎖時配對略過該票券；配對先取得列鎖時，取消等待後回報 `matched`；run 53 的 `block_race` job 通過。
 - [x] 以新增 migration 修正帳號刪除時檢舉只解除已刪除一方關聯的缺口；只要案件任一涉事玩家刪除帳號，就保留 180 天案件內容並同時清除兩方 ID。
 - [x] 將 Deno／PGlite migration 與 Edge Function 回歸測試接入 Pages workflow，驗證完成後才部署，並將 `pages: write`／`id-token: write` 權限限制在部署 job；run 41 已在 GitHub runner 完成驗證及部署。
-- [x] 將 PostgreSQL 16 多連線競態測試加入獨立 CI job，並要求它和既有 verify job 都成功後才部署；run 53、54 的 verify、`block_race` 與 deploy 均通過。
+- [x] 將 PostgreSQL 16 多連線競態測試加入獨立 CI job，並要求它和既有 verify job 都成功後才部署；run 53、54、55 的 verify、`block_race` 與 deploy 均通過。
+- [x] 將配對取消前端競態加入 headless Chrome mock 回歸測試，並放入 Pages workflow 的部署前驗證；確認取消在狀態查詢進行中不會被忽略，且已配對時能透過後續狀態查詢恢復房間。
 - [ ] 建立 Supabase 專案與開發／正式環境，啟用 Anonymous Auth，套用並實際驗證 migration。
 - [ ] 啟用 Supabase Manual Linking；設定本機與 GitHub Pages redirect allow list 及 Google／Facebook／X callback。
 - [ ] 完成 RLS、Realtime、RPC 權限和資料驗證；確保玩家只能查看有權存取的房間、答案與紀錄。
@@ -134,7 +135,7 @@
 - [x] 加入遊戲房間後以 `get_room_state` 還原題目，訂閱 `game_rooms` Realtime 更新並保留輪詢備援；Realtime 事件只觸發重新查詢，不傳送答案。
 - [x] 以 `submit_answer` 送出答案，只在伺服器確認雙方都回答後顯示答案；以 `continue_room` 等待雙方確認並推進題目，結束後讀取 `get_room_results`。Chrome mock 驗證五題作答、答案揭曉、確認等待和完局結果。
 - [x] 將隨機配對接上 `queue_for_match`、`get_match_status` 與 `cancel_matchmaking`，處理 30 秒逾時及重新排隊；Chrome mock 驗證配對成功、逾時重試和取消。
-- [x] 加入遠端遊戲與配對前端錯誤處理：重複送出防護、房間逾時、離線後重試、中途離開、重新載入後透過房間 RPC 恢復、取消佇列及完局歷史寫入 migration。真人服務的 RLS、網路中斷和跨裝置行為仍待 Supabase 環境驗證。
+- [x] 加入遠端遊戲與配對前端錯誤處理：重複送出防護、房間逾時、離線後重試、中途離開、重新載入後透過房間 RPC 恢復、取消佇列及完局歷史寫入 migration。若取消在配對狀態 RPC 執行期間發生，前端先保留取消意圖並於 RPC 結束後送出；取消回報已配對但未回傳房間 ID 時繼續查詢狀態。headless Chrome mock 已驗證此流程；真人服務的 RLS、網路中斷和跨裝置行為仍待 Supabase 環境驗證。
 - [x] 建立已完成對局的持久紀錄與受權限保護的歷史查詢 RPC 草稿，按定案的保存政策清除或匿名化資料。
 - [x] 建立玩家共同點彙總 RPC 草稿，依共同答案比例排序並回傳對局數、共同答案數和比例。
 - [ ] 使用 Supabase 真實使用者資料驗證歷史分頁游標、90 天保留、逐筆刪除、排名門檻及只允許本人查詢的權限。

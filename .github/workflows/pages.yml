@@ -42,6 +42,9 @@ jobs:
       - name: Check frontend JavaScript syntax
         run: node --check site/app.js
 
+      - name: Test matchmaking cancellation race in headless Chrome
+        run: node scripts/matchmaking-cancel-race.mjs
+
   block_race:
     runs-on: ubuntu-latest
     services:

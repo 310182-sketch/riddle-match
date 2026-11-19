@@ -204,3 +204,9 @@
 - **經驗：** 將 HTTP request handler 匯出，並只在 `import.meta.main` 時啟動 `Deno.serve`，可以直接對 handler 執行本機測試，而不需要啟動監聽服務或使用真實第三方憑證。測試環境變數應在動態匯入 handler 前設定，避免模組快取讀到錯誤設定。
 - **適用範圍：** Supabase Edge Functions、Deno serverless handlers，以及需要驗證 CORS、HTTP method 和未登入錯誤分支的無伺服器 API。
 - **本專案做法：** `delete-account/index.ts` 匯出 `handleRequest`，測試匯入時不啟動 Edge Function server；Deno 測試在 loopback 啟動 mock Auth API，使用暫存假設定覆蓋允許／拒絕的 preflight、origin 拒絕、非 POST、缺少／無效 Bearer token，以及成功時只刪除 token 對應的 ID 並使用後端管理 key。7 個子測試全通過。這不驗證 Supabase gateway JWT、正式 Auth Admin 權限、CORS 部署、Edge secrets 或資料庫 trigger，仍需在 Supabase 環境驗證。
+
+## 配對狀態查詢進行中也要保留取消操作
+
+- **經驗：** 配對狀態輪詢尚未返回時若直接忽略取消，玩家在短暫網路延遲期間會按了取消卻留在佇列。應先記錄取消意圖、讓畫面顯示正在取消，待目前 RPC 完成後再送出取消；若狀態先確認已配對，則以伺服器狀態進入房間。取消回應可能只有 `matched` 而沒有 `room_id`，此時要再查詢狀態取得完整房間資料。
+- **適用範圍：** 有輪詢狀態且可被使用者取消的配對、工作佇列或長時間網路操作。
+- **本專案做法：** `finishMatchmakingRequest` 在狀態 RPC 結束時釋放忙碌狀態並送出待處理的取消；配對確認先發生時會停止取消並進房。`scripts/matchmaking-cancel-race.mjs` 用 headless Chrome 和可控的 mock RPC，驗證輪詢等待期間按取消、輪詢回報仍等待、取消回報已配對但無房間 ID、再查到房間並顯示真人遊戲頁。這驗證瀏覽器端的請求順序與畫面路由，不取代 PostgreSQL 鎖競態、Supabase Auth 或跨裝置實測。
