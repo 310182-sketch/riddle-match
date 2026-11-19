@@ -46,7 +46,12 @@
     historyCursor: null,
     historyHasMore: false,
     historyBusy: false,
-    historyRequestId: 0
+    historyRequestId: 0,
+    liveRoom: null,
+    roomOperationId: 0,
+    roomPollId: 0,
+    roomStatusTimer: null,
+    roomBusy: false
   };
 
   const authState = {
@@ -131,7 +136,69 @@
     return code;
   }
 
+  function stopRoomStatusWatch() {
+    window.clearTimeout(state.roomStatusTimer);
+    state.roomStatusTimer = null;
+    state.roomPollId += 1;
+  }
+
+  function getPlayerNickname() {
+    return ($("#nickname").value.trim() || "小星").slice(0, 12);
+  }
+
+  function formatRoomExpiry(expiresAt) {
+    const expiry = new Date(expiresAt);
+    return Number.isNaN(expiry.getTime())
+      ? ""
+      : `（約 ${expiry.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })} 失效）`;
+  }
+
+  function updateLiveRoomScreen(status) {
+    const room = state.liveRoom;
+    if (!room) return;
+    room.status = status.status || room.status;
+    if (Object.prototype.hasOwnProperty.call(status, "invite_code")) room.inviteCode = status.invite_code;
+    if (Object.prototype.hasOwnProperty.call(status, "expires_at")) room.expiresAt = status.expires_at;
+    if (Object.prototype.hasOwnProperty.call(status, "opponent_nickname")) room.opponentNickname = status.opponent_nickname;
+
+    const code = room.inviteCode;
+    const waitingForInvite = room.status === "waiting" && room.createdBy;
+    const closed = ["expired", "abandoned", "completed"].includes(room.status);
+    $("[data-room-code]").textContent = code || (room.status === "joined" ? "已加入" : "—");
+    $("[data-copy-room-code]").classList.toggle("hidden", !code || !waitingForInvite);
+    $("[data-room-demo]").classList.add("hidden");
+    $("[data-room-leave]").classList.remove("hidden");
+    $("[data-room-leave]").textContent = closed ? "回到首頁" : "離開真人房間";
+    $("[data-room-home]").classList.add("hidden");
+
+    if (waitingForInvite) {
+      $("[data-room-status]").textContent = `等待朋友加入你的房間。${formatRoomExpiry(room.expiresAt)}`;
+      $("[data-room-note]").textContent = "這是已建立的真人房間；朋友加入後會在此顯示狀態。";
+    } else if (room.status === "joined") {
+      $("[data-room-status]").textContent = `已加入 ${room.opponentNickname || "朋友"} 的房間。`;
+      $("[data-room-note]").textContent = "房間已連線；真人雙人答題畫面仍待串接完成。";
+    } else if (room.status === "playing") {
+      $("[data-room-status]").textContent = "朋友已加入，真人房間已配對。";
+      $("[data-room-note]").textContent = "真人雙人答題畫面仍待串接完成；離開此頁會關閉房間。";
+    } else if (room.status === "expired") {
+      $("[data-room-status]").textContent = "房間已逾期並關閉。";
+      $("[data-room-note]").textContent = "邀請房等待 10 分鐘後會失效，請返回首頁重新建立。";
+      $("[data-room-leave]").textContent = "回到首頁";
+    } else if (room.status === "abandoned") {
+      $("[data-room-status]").textContent = "房間已關閉。";
+      $("[data-room-note]").textContent = "房主或玩家已離開此房間。";
+    } else if (room.status === "completed") {
+      $("[data-room-status]").textContent = "這局已結束。";
+      $("[data-room-note]").textContent = "回到首頁即可開始新的配對。";
+    } else {
+      $("[data-room-status]").textContent = "帳號已有進行中的真人房間。";
+      $("[data-room-note]").textContent = "房間資料已確認；答題同步畫面仍待串接完成。";
+    }
+  }
+
   function showRoomPreview(code, joined = false) {
+    stopRoomStatusWatch();
+    state.liveRoom = null;
     $("[data-room-title]").textContent = joined ? "房間代碼已輸入" : "邀請房間已建立";
     $("[data-room-status]").textContent = joined
       ? "真人房間驗證尚未連線，這裡不會確認代碼是否有效。"
@@ -141,16 +208,105 @@
       ? "這是加入流程預覽；目前未連線伺服器，也未加入任何房間。"
       : "這是本機示範代碼，其他裝置目前無法使用。";
     $("[data-copy-room-code]").classList.toggle("hidden", joined);
+    $("[data-copy-room-code]").textContent = "複製代碼";
+    $("[data-room-demo]").classList.remove("hidden");
+    $("[data-room-leave]").classList.add("hidden");
+    $("[data-room-home]").classList.remove("hidden");
     showView("invite-room", true);
   }
 
-  function openDemoRoom() {
-    state.nickname = ($("#nickname").value.trim() || "小星").slice(0, 12);
-    chooseTopic();
-    showRoomPreview(createDemoInviteCode());
+  function scheduleRoomStatusCheck(roomId, pollId, userId, delay = 2500) {
+    state.roomStatusTimer = window.setTimeout(async () => {
+      if (pollId !== state.roomPollId || authState.session?.user?.id !== userId) return;
+      try {
+        const { data, error } = await authState.client.rpc("get_invite_room_status", {
+          p_room_id: roomId
+        });
+        if (pollId !== state.roomPollId || authState.session?.user?.id !== userId) return;
+        if (error) throw error;
+        updateLiveRoomScreen(data || {});
+        if (data?.status === "waiting") {
+          scheduleRoomStatusCheck(roomId, pollId, userId);
+        }
+      } catch (error) {
+        if (pollId !== state.roomPollId || authState.session?.user?.id !== userId) return;
+        console.warn("Could not refresh invite room status", error);
+        $("[data-room-status]").textContent = "暫時無法更新房間狀態，正在重試…";
+        scheduleRoomStatusCheck(roomId, pollId, userId, 4000);
+      }
+    }, delay);
   }
 
-  function joinDemoRoom() {
+  function showLiveInviteRoom(room) {
+    stopRoomStatusWatch();
+    state.liveRoom = room;
+    $("[data-room-title]").textContent = room.status === "active_room"
+      ? "進行中的房間"
+      : room.createdBy
+        ? "邀請房間已建立"
+        : "已加入邀請房間";
+    $("[data-copy-room-code]").textContent = "複製邀請代碼";
+    updateLiveRoomScreen(room);
+    showView("invite-room", true);
+    if (room.status === "waiting" && room.createdBy && room.inviteCode) {
+      const pollId = ++state.roomPollId;
+      scheduleRoomStatusCheck(room.roomId, pollId, room.userId, 1500);
+    }
+  }
+
+  async function openInviteRoom() {
+    if (state.roomBusy) return;
+    state.nickname = getPlayerNickname();
+    chooseTopic();
+    if (!authState.client) {
+      showRoomPreview(createDemoInviteCode());
+      return;
+    }
+    if (!authState.session?.user?.id) {
+      announce("請先登入，再建立真人邀請房。");
+      return;
+    }
+
+    const button = $("[data-create-room]");
+    const operationId = ++state.roomOperationId;
+    const userId = authState.session.user.id;
+    state.roomBusy = true;
+    button.disabled = true;
+    try {
+      const { data, error } = await authState.client.rpc("create_invite_room", {
+        p_topic_choice: topicChoiceKeys[state.topicChoice] || "random",
+        p_nickname: state.nickname
+      });
+      if (operationId !== state.roomOperationId || authState.session?.user?.id !== userId) return;
+      if (error) throw error;
+      if (!data?.room_id || !["waiting", "active_room"].includes(data.status)) {
+        throw new Error("Unexpected invite room response");
+      }
+      const waiting = data.status === "waiting" || Boolean(data.invite_code);
+      showLiveInviteRoom({
+        roomId: data.room_id,
+        inviteCode: data.invite_code || null,
+        topicKey: data.topic_key,
+        status: waiting ? "waiting" : data.status,
+        expiresAt: data.expires_at,
+        opponentNickname: null,
+        createdBy: true,
+        userId
+      });
+    } catch (error) {
+      if (operationId !== state.roomOperationId || authState.session?.user?.id !== userId) return;
+      console.warn("Could not create invite room", error);
+      announce("邀請房沒有建立成功，請確認登入狀態及資料庫設定後重試。");
+    } finally {
+      if (operationId === state.roomOperationId) {
+        state.roomBusy = false;
+        button.disabled = false;
+      }
+    }
+  }
+
+  async function joinInviteRoom() {
+    if (state.roomBusy) return;
     const input = $("#invite-code");
     const code = input.value.trim().toUpperCase();
     if (!/^[0-9A-F]{12}$/.test(code)) {
@@ -158,15 +314,108 @@
       input.focus();
       return;
     }
-    state.nickname = ($("#nickname").value.trim() || "小星").slice(0, 12);
-    showRoomPreview(code, true);
+    state.nickname = getPlayerNickname();
+    if (!authState.client) {
+      showRoomPreview(code, true);
+      return;
+    }
+    if (!authState.session?.user?.id) {
+      announce("請先登入，再加入真人邀請房。");
+      return;
+    }
+
+    const button = $("[data-join-room]");
+    const operationId = ++state.roomOperationId;
+    const userId = authState.session.user.id;
+    state.roomBusy = true;
+    button.disabled = true;
+    try {
+      const { data, error } = await authState.client.rpc("join_invite_room", {
+        p_invite_code: code,
+        p_nickname: state.nickname
+      });
+      if (operationId !== state.roomOperationId || authState.session?.user?.id !== userId) return;
+      if (error) throw error;
+      if (data?.status === "not_found") {
+        announce("找不到這個邀請代碼，請確認後重試。");
+        input.focus();
+        return;
+      }
+      if (data?.status === "expired") {
+        announce("這個邀請房已逾期，請向朋友索取新代碼。");
+        input.focus();
+        return;
+      }
+      if (data?.status === "unavailable") {
+        announce("這個邀請房已經有人加入或已關閉。");
+        input.focus();
+        return;
+      }
+      if (!["joined", "active_room"].includes(data?.status) || !data.room_id) {
+        throw new Error("Unexpected join room response");
+      }
+      showLiveInviteRoom({
+        roomId: data.room_id,
+        inviteCode: null,
+        topicKey: data.topic_key,
+        status: data.status,
+        expiresAt: data.expires_at,
+        opponentNickname: data.opponent_nickname,
+        createdBy: false,
+        userId
+      });
+    } catch (error) {
+      if (operationId !== state.roomOperationId || authState.session?.user?.id !== userId) return;
+      console.warn("Could not join invite room", error);
+      announce("加入邀請房沒有完成，請確認登入狀態及代碼後重試。");
+    } finally {
+      if (operationId === state.roomOperationId) {
+        state.roomBusy = false;
+        button.disabled = false;
+      }
+    }
+  }
+
+  async function leaveInviteRoom() {
+    const room = state.liveRoom;
+    if (!room) {
+      showView("home", true);
+      return;
+    }
+    if (state.roomBusy || !authState.client || !authState.session?.user?.id) return;
+    const button = $("[data-room-leave]");
+    const operationId = ++state.roomOperationId;
+    state.roomBusy = true;
+    button.disabled = true;
+    stopRoomStatusWatch();
+    try {
+      const { error } = await authState.client.rpc("leave_room", { p_room_id: room.roomId });
+      if (operationId !== state.roomOperationId || authState.session?.user?.id !== room.userId) return;
+      if (error) throw error;
+      state.liveRoom = null;
+      showView("home", true);
+      announce("已離開真人房間。");
+    } catch (error) {
+      if (operationId !== state.roomOperationId || authState.session?.user?.id !== room.userId) return;
+      console.warn("Could not leave invite room", error);
+      $("[data-room-status]").textContent = "離開房間沒有完成，請稍後重試。";
+      if (room.createdBy && room.status === "waiting") {
+        const pollId = ++state.roomPollId;
+        scheduleRoomStatusCheck(room.roomId, pollId, room.userId);
+      }
+    } finally {
+      if (operationId === state.roomOperationId) {
+        state.roomBusy = false;
+        button.disabled = false;
+      }
+    }
   }
 
   async function copyDemoInviteCode() {
     const code = $("[data-room-code]").textContent;
     try {
       await navigator.clipboard.writeText(code);
-      announce("示範代碼已複製。");
+      announce(state.liveRoom ? "邀請代碼已複製。" : "示範代碼已複製。");
     } catch {
       announce("複製功能無法使用，請手動記下代碼。");
     }
@@ -449,6 +698,7 @@
     threads: "Threads"
   };
   const topicLabels = { travel: "旅行", music: "音樂", daily: "日常", food: "飲食" };
+  const topicChoiceKeys = { 旅行: "travel", 音樂: "music", 日常: "daily", 飲食: "food", 隨機: "random" };
 
   function configuredAuthProvider(name) {
     const providers = authState.config && authState.config.providers;
@@ -548,6 +798,19 @@
         authState.session = session;
         authState.notice = "";
         if (previousUserId !== nextUserId) {
+          if (state.liveRoom) {
+            stopRoomStatusWatch();
+            state.roomOperationId += 1;
+            state.roomBusy = false;
+            $("[data-create-room]").disabled = false;
+            $("[data-join-room]").disabled = false;
+            $("[data-room-leave]").disabled = false;
+            state.liveRoom = null;
+            if (!$('[data-view="invite-room"]').classList.contains("hidden")) {
+              showView("home", true);
+            }
+            announce("登入帳號已變更；原房間會在閒置期限後自動關閉。");
+          }
           clearHistoryContent();
           if (historyViewIsVisible()) {
             const status = $("[data-history-status]");
@@ -879,7 +1142,7 @@
 
   $("[data-demo-start]").addEventListener("click", () => startMatching("demo"));
   $("[data-random-match]").addEventListener("click", () => startMatching("random"));
-  $("[data-create-room]").addEventListener("click", openDemoRoom);
+  $("[data-create-room]").addEventListener("click", openInviteRoom);
   $("[data-toggle-join]").addEventListener("click", (event) => {
     const panel = $("[data-join-panel]");
     const expanded = event.currentTarget.getAttribute("aria-expanded") === "true";
@@ -887,7 +1150,7 @@
     panel.classList.toggle("hidden", expanded);
     if (!expanded) $("#invite-code").focus();
   });
-  $("[data-join-room]").addEventListener("click", joinDemoRoom);
+  $("[data-join-room]").addEventListener("click", joinInviteRoom);
   $("#invite-code").addEventListener("input", (event) => {
     event.currentTarget.value = event.currentTarget.value.replace(/[^0-9a-f]/gi, "").toUpperCase().slice(0, 12);
   });
@@ -899,6 +1162,7 @@
   });
   $("[data-copy-room-code]").addEventListener("click", copyDemoInviteCode);
   $("[data-room-demo]").addEventListener("click", () => startMatching("demo"));
+  $("[data-room-leave]").addEventListener("click", leaveInviteRoom);
   $("[data-use-demo]").addEventListener("click", startDemoGame);
   $("[data-open-history]").addEventListener("click", () => {
     showView("history", true);
@@ -931,6 +1195,10 @@
   $$("[data-home]").forEach((button) => {
     button.addEventListener("click", (event) => {
       if (button.tagName === "A") event.preventDefault();
+      if (state.liveRoom) {
+        leaveInviteRoom();
+        return;
+      }
       window.clearTimeout(state.matchTimer);
       showView("home", true);
     });

@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="styles.css?v=8">
     <script src="supabase-config.js?v=1" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.js" integrity="sha384-A97u3Qnt9GZHURO9YJZRe7VQgGUeFzcv6I1oIGnUTxQrCxnpQMwR0/G8F2zt9abZ" crossorigin="anonymous" defer></script>
-    <script src="app.js?v=5" defer></script>
+    <script src="app.js?v=6" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -127,7 +127,7 @@
           <div class="workflow-mark" aria-hidden="true">⌂</div>
           <p class="eyebrow centered-eyebrow">邀請朋友一起玩</p>
           <h1 id="invite-room-title" data-focus-target tabindex="-1" data-room-title>你的邀請房間已準備好</h1>
-          <p class="workflow-copy" data-room-status>把代碼分享給朋友，對方加入後就能開始。</p>
+          <p class="workflow-copy" data-room-status role="status" aria-live="polite">把代碼分享給朋友，對方加入後就能開始。</p>
           <div class="invite-code-card">
             <span>房間代碼</span>
             <strong data-room-code>000000000000</strong>
@@ -137,7 +137,8 @@
           <div class="workflow-meta"><span>等待時間</span><b>10 分鐘</b></div>
           <div class="workflow-actions">
             <button class="primary-button" type="button" data-room-demo><span>先玩示範對局</span><span class="button-arrow" aria-hidden="true">↗</span></button>
-            <button class="text-button" type="button" data-home>回到首頁</button>
+            <button class="text-button hidden" type="button" data-room-leave>離開真人房間</button>
+            <button class="text-button" type="button" data-room-home data-home>回到首頁</button>
           </div>
         </section>
 
