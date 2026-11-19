@@ -12,16 +12,23 @@ const allowedOrigins = new Set(
 
 function corsHeaders(origin: string) {
   const headers = new Headers({
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
   });
-  if (allowedOrigins.has(origin)) headers.set("Access-Control-Allow-Origin", origin);
+  if (allowedOrigins.has(origin)) {
+    headers.set("Access-Control-Allow-Origin", origin);
+  }
   return headers;
 }
 
-function jsonResponse(origin: string, status: number, body: Record<string, string>) {
+function jsonResponse(
+  origin: string,
+  status: number,
+  body: Record<string, string>,
+) {
   const headers = corsHeaders(origin);
   headers.set("Content-Type", "application/json; charset=utf-8");
   return new Response(JSON.stringify(body), { status, headers });
@@ -32,17 +39,23 @@ Deno.serve(async (request: Request) => {
   const headers = corsHeaders(origin);
 
   if (request.method === "OPTIONS") {
-    if (!allowedOrigins.has(origin)) return new Response(null, { status: 403, headers });
+    if (!allowedOrigins.has(origin)) {
+      return new Response(null, { status: 403, headers });
+    }
     return new Response("ok", { headers });
   }
   if (!allowedOrigins.has(origin)) {
-    return jsonResponse(origin, 403, { error: "This website is not allowed to delete accounts." });
+    return jsonResponse(origin, 403, {
+      error: "This website is not allowed to delete accounts.",
+    });
   }
   if (request.method !== "POST") {
     return jsonResponse(origin, 405, { error: "Method not allowed." });
   }
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-    return jsonResponse(origin, 500, { error: "Account deletion is not configured." });
+    return jsonResponse(origin, 500, {
+      error: "Account deletion is not configured.",
+    });
   }
 
   const authorization = request.headers.get("authorization");
@@ -63,14 +76,23 @@ Deno.serve(async (request: Request) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(data.user.id);
+    const { error: deleteError } = await adminClient.auth.admin.deleteUser(
+      data.user.id,
+    );
     if (deleteError) {
-      console.error("Account deletion failed", deleteError.code ?? "unknown error");
-      return jsonResponse(origin, 500, { error: "Account deletion could not be completed." });
+      console.error(
+        "Account deletion failed",
+        deleteError.code ?? "unknown error",
+      );
+      return jsonResponse(origin, 500, {
+        error: "Account deletion could not be completed.",
+      });
     }
 
     return jsonResponse(origin, 200, { status: "deleted" });
   } catch {
-    return jsonResponse(origin, 500, { error: "Account deletion could not be completed." });
+    return jsonResponse(origin, 500, {
+      error: "Account deletion could not be completed.",
+    });
   }
 });
