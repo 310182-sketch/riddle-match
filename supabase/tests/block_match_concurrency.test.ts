@@ -19,6 +19,7 @@ if (!new Set(["localhost", "127.0.0.1", "::1"]).has(databaseHost)) {
 const users = {
   host: "00000000-0000-4000-8000-000000000201",
   guest: "00000000-0000-4000-8000-000000000202",
+  quota: "00000000-0000-4000-8000-000000000203",
 };
 
 async function connect(applicationName: string) {
@@ -112,24 +113,109 @@ async function waitForAdvisoryLock(
   }
   assert(
     waitingForAdvisoryLock,
-    `${applicationName} must wait on the block transaction's advisory lock`,
+    `${applicationName} must wait on the transaction advisory lock`,
   );
 }
 
-Deno.test("matchmaking and invite joins wait for an in-flight block write", async () => {
+Deno.test("account limits and block writes serialize concurrent requests", async () => {
   const admin = await connect("block-race-admin");
   let blocker: PgClient | null = null;
   let matcher: PgClient | null = null;
+  let quotaCreator: PgClient | null = null;
+  let quotaWaiter: PgClient | null = null;
   let blockerTransactionOpen = false;
   let matcherTransactionOpen = false;
+  let quotaCreatorTransactionOpen = false;
+  let quotaWaiterTransactionOpen = false;
   let requestPromise: ReturnType<PgClient["query"]> | null = null;
+  let quotaRequestPromise: ReturnType<PgClient["query"]> | null = null;
 
   try {
     await applyMigrations(admin);
-    await admin.query("insert into auth.users (id) values ($1), ($2)", [
-      users.host,
-      users.guest,
+    await admin.query(
+      "insert into auth.users (id) values ($1), ($2), ($3)",
+      [users.host, users.guest, users.quota],
+    );
+
+    for (let room = 0; room < 5; room += 1) {
+      await admin.query(
+        `
+        insert into public.game_rooms (topic_key, status, created_by)
+        values ('daily', 'completed', $1)
+      `,
+        [users.quota],
+      );
+    }
+
+    quotaCreator = await connect("invite-quota-holder");
+    quotaWaiter = await connect("invite-quota-waiter");
+    await setAuthenticatedUser(quotaCreator, users.quota);
+    quotaCreatorTransactionOpen = true;
+    const createdRoom = await quotaCreator.query<{
+      response: { status: string; room_id: string };
+    }>("select public.create_invite_room($1, $2) as response", [
+      "daily",
+      "Quota",
     ]);
+    assertEquals(
+      createdRoom.rows[0].response.status,
+      "waiting",
+      "the sixth room within the quota is allowed",
+    );
+    const closedRoom = await quotaCreator.query<{
+      response: { status: string };
+    }>("select public.leave_room($1::uuid) as response", [
+      createdRoom.rows[0].response.room_id,
+    ]);
+    assertEquals(
+      closedRoom.rows[0].response.status,
+      "abandoned",
+      "the created room is closed before testing the next request",
+    );
+
+    await setAuthenticatedUser(quotaWaiter, users.quota);
+    quotaWaiterTransactionOpen = true;
+    let quotaRequestFinished = false;
+    quotaRequestPromise = quotaWaiter.query(
+      "select public.create_invite_room($1, $2) as response",
+      ["daily", "Quota"],
+    ).finally(() => {
+      quotaRequestFinished = true;
+    });
+    let quotaError: unknown = null;
+    const quotaRequestSettled = quotaRequestPromise.catch((error) => {
+      quotaError = error;
+    });
+    await waitForAdvisoryLock(
+      admin,
+      "invite-quota-waiter",
+      () => quotaRequestFinished,
+    );
+
+    await quotaCreator.query("commit");
+    quotaCreatorTransactionOpen = false;
+    await quotaRequestSettled;
+    await quotaWaiter.query("rollback");
+    quotaWaiterTransactionOpen = false;
+    assert(
+      quotaError instanceof Error &&
+        quotaError.message.includes("Invite room rate limit reached"),
+      "a concurrent invite request must not exceed the account room limit",
+    );
+    const quotaRoomCount = await admin.query<{ count: string }>(
+      "select count(*)::text as count from public.game_rooms where created_by = $1",
+      [users.quota],
+    );
+    assertEquals(
+      quotaRoomCount.rows[0].count,
+      "6",
+      "the concurrent request does not create a seventh room",
+    );
+
+    await quotaCreator.end();
+    await quotaWaiter.end();
+    quotaCreator = null;
+    quotaWaiter = null;
 
     const roomResult = await admin.query<{ id: string }>(
       `
@@ -259,8 +345,17 @@ Deno.test("matchmaking and invite joins wait for an in-flight block write", asyn
       "an invite join must be rejected after the block commits",
     );
   } finally {
+    if (quotaCreatorTransactionOpen && quotaCreator) {
+      await quotaCreator.query("rollback").catch(() => undefined);
+    }
+    if (quotaWaiterTransactionOpen && quotaWaiter) {
+      await quotaWaiter.query("rollback").catch(() => undefined);
+    }
     if (blockerTransactionOpen && blocker) {
       await blocker.query("rollback").catch(() => undefined);
+    }
+    if (quotaRequestPromise) {
+      await quotaRequestPromise.catch(() => undefined);
     }
     if (requestPromise) {
       await requestPromise.catch(() => undefined);
@@ -269,6 +364,8 @@ Deno.test("matchmaking and invite joins wait for an in-flight block write", asyn
       await matcher.query("rollback").catch(() => undefined);
     }
     await Promise.all([
+      quotaCreator?.end(),
+      quotaWaiter?.end(),
       blocker?.end(),
       matcher?.end(),
       admin.end(),

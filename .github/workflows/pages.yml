@@ -68,7 +68,7 @@ jobs:
         with:
           deno-version: v2.9.8
 
-      - name: Test block and matchmaking transaction race
+      - name: Test PostgreSQL multi-connection races
         run: deno test --allow-env --allow-net --allow-read supabase/tests/block_match_concurrency.test.ts
 
   deploy:

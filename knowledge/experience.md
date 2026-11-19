@@ -114,6 +114,12 @@
 - **適用範圍：** 使用 transaction advisory lock 協調配對、封鎖、唯一性或其他跨請求競爭條件的 PostgreSQL 服務。
 - **本專案做法：** `supabase/tests/block_match_concurrency.test.ts` 以封鎖 client 持有交易鎖、第二個 client 分別呼叫 `queue_for_match` 和 `join_invite_room`，第三條管理連線透過 `pg_stat_activity` 確認兩個請求確實等待 advisory lock。封鎖提交後，配對 RPC 回傳 `waiting`，邀請加入因 `Room unavailable` 被拒絕。run 45 的 PostgreSQL 16 job 通過。測試只允許 loopback 主機，應在一次性空白資料庫執行；它不等同 Supabase Auth、Realtime、RLS 或跨裝置驗證。
 
+## 計數式限量要與寫入交易序列化
+
+- **經驗：** 以 `count(*)` 判斷是否超過帳號限額時，兩筆並行寫入可能同時讀到低於上限的舊數字，最後都插入成功。限量檢查必須和相應 RPC 的寫入共用序列化交易鎖，並用真實多連線測試確認持鎖、提交後重新計數及拒絕超額的順序。
+- **適用範圍：** 以資料列計數實作每帳號每時段配額的 PostgreSQL API，例如配對票券、建立房間、邀請或其他限次操作。
+- **本專案做法：** `create_invite_room` 和 `queue_for_match` 在新增資料前都取得 transaction advisory lock `82420711`，限量 trigger 再分別檢查一小時內最多 6 個房間及 10 分鐘內最多 12 張配對票券。現有 PGlite 測試驗證上限值，PostgreSQL 多連線測試尚未直接驗證臨界值的並行請求；此項已列入路線圖。此鎖只保護使用這些 RPC 的一般應用流程，正式環境仍需確認權限沒有其他可繞過入口。
+
 ## SECURITY DEFINER 函式要固定空 search_path
 
 - **經驗：** PostgreSQL `SECURITY DEFINER` 函式以函式擁有者權限執行；若使用呼叫者可影響的 schema 搜尋路徑，可能解析到惡意同名物件。將 `search_path` 設為空並完整限定資料表、schema 函式名稱，可避免依賴可變的 schema 搜尋順序。
