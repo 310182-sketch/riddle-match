@@ -22,7 +22,7 @@
 
 - **經驗：** Pages Actions 需要 pages: write 與 id-token: write 權限，repository 的 Pages source 也必須設為 GitHub Actions。
 - **適用範圍：** 使用 GitHub Actions 發布 GitHub Pages 網站。
-- **本專案做法：** workflow 已由功能分支觸發；`github-pages` environment 曾拒絕未列入允許清單的分支，加入精確分支政策後部署成功。`verify` job 執行 Deno 型別／lint／格式、PGlite migration 測試、Edge Function request 測試和前端語法檢查；另外以隔離的 PostgreSQL 16 service 執行封鎖與配對的多連線競態測試。`deploy` 必須等待所有驗證 job，並獨立取得 `pages: write` 與 `id-token: write`。部署失敗時先看實際失敗步驟與 annotation；runner 棄用警告和真正的部署錯誤要分開處理，也不能只憑 workflow 已觸發或排入佇列就宣稱網站已發布。run 43 的 verify、block_race 與 deploy 全部成功。
+- **本專案做法：** workflow 已由功能分支觸發；`github-pages` environment 曾拒絕未列入允許清單的分支，加入精確分支政策後部署成功。`verify` job 執行 Deno 型別／lint／格式、PGlite migration 測試、Edge Function request 測試和前端語法檢查；另外以隔離的 PostgreSQL 16 service 執行封鎖、隨機配對及邀請加入的多連線競態測試。`deploy` 必須等待所有驗證 job，並獨立取得 `pages: write` 與 `id-token: write`。部署失敗時先看實際失敗步驟與 annotation；runner 棄用警告和真正的部署錯誤要分開處理，也不能只憑 workflow 已觸發或排入佇列就宣稱網站已發布。run 45 的 verify、block_race 與 deploy 全部成功。
 
 ## 靜態前端不可放伺服器祕密
 
@@ -106,13 +106,13 @@
 
 - **經驗：** PGlite 可在瀏覽器執行 PostgreSQL，讓 migration 在建立雲端專案前先做套用和 RPC 回歸測試。把最小 `auth.users`、`auth.uid()`、角色及登入 claim stub 寫進版本控制，可讓後續 migration 修改重複檢查 PostgreSQL／PLpgSQL 語法、權限邊界及核心資料流程，不必依賴一次性的手動 smoke test。
 - **適用範圍：** 使用 PostgreSQL、RPC、觸發器和 RLS 的 Supabase 專案，且本機沒有 Docker、PostgreSQL 或 Supabase CLI 時。
-- **本專案做法：** `supabase/tests/migrations.test.ts` 以固定版本的 PGlite 自動讀取 `supabase/migrations/` 內所有 SQL 檔案，再按檔名順序套用；新增 migration 不必再更新測試中的重複清單。測試可用 `deno test --allow-read --allow-net supabase/tests/migrations.test.ts` 重複執行。10 項測試涵蓋 migration／權限、security-definer 函式固定空 `search_path` 且不能由 `anon` 執行、雙人答案揭曉與歷史、隨機配對主題相容／封鎖排除／取消、封鎖與配對／邀請加入共用交易鎖、歷史游標分頁／90 天範圍／三局排名門檻、本人歷史讀取和刪除權限、24／90／180 天清理、配對與開房限量、檢舉，以及帳號刪除時關閉房間、移除本人歷史、匿名化對手歷史並移除案件雙方帳號 ID。測試需以不同 JWT subject 呼叫 security-definer RPC，驗證讀取與刪除都只作用於該玩家資料，並確認未登入呼叫被拒絕；刪除帳號測試也應同時核對 cascade、匿名化和保留期限，避免只看 Auth row 是否消失。所有應用 security-definer 函式都固定空 `search_path`，回歸測試直接檢查 `pg_proc.proconfig`，並確認匿名角色沒有任何應用 security-definer 函式的執行權。共享 advisory lock 的測試確認封鎖、隨機配對及邀請加入都使用同一 transaction lock；此為邏輯不變條件檢查，不等同多連線並行測試。此預檢不等同 Supabase 驗證：Auth claims、Realtime、pg_cron、Edge Function secret、CORS、資料列權限和真實並行交易仍須另測。
+- **本專案做法：** `supabase/tests/migrations.test.ts` 以固定版本的 PGlite 自動讀取 `supabase/migrations/` 內所有 SQL 檔案，再按檔名順序套用；新增 migration 不必再更新測試中的重複清單。測試可用 `deno test --allow-read --allow-net supabase/tests/migrations.test.ts` 重複執行。10 項測試涵蓋 migration／權限、security-definer 函式固定空 `search_path` 且不能由 `anon` 執行、雙人答案揭曉與歷史、隨機配對主題相容／封鎖排除／取消、封鎖與配對／邀請加入共用交易鎖、歷史游標分頁／90 天範圍／三局排名門檻、本人歷史讀取和刪除權限、24／90／180 天清理、配對與開房限量、檢舉，以及帳號刪除時關閉房間、移除本人歷史、匿名化對手歷史並移除案件雙方帳號 ID。測試需以不同 JWT subject 呼叫 security-definer RPC，驗證讀取與刪除都只作用於該玩家資料，並確認未登入呼叫被拒絕；刪除帳號測試也應同時核對 cascade、匿名化和保留期限，避免只看 Auth row 是否消失。所有應用 security-definer 函式都固定空 `search_path`，回歸測試直接檢查 `pg_proc.proconfig`，並確認匿名角色沒有任何應用 security-definer 函式的執行權。PGlite 的共用鎖檢查只能驗證不變條件；兩條請求連線加一條管理連線的 PostgreSQL 16 整合測試另已驗證封鎖交易確實會阻塞配對與邀請加入。其他限量競態和 Supabase Auth／Realtime／pg_cron／RLS 環境仍須另驗。
 
 ## 多連線交易競態要用真實 PostgreSQL 驗證
 
 - **經驗：** 單一連線或 PGlite 的結構檢查能證明多個 RPC 使用相同 advisory lock，卻不能證明一筆交易持鎖時，另一筆交易真的等待並在提交後讀到新狀態。要驗證競態順序，需使用獨立連線同步製造兩筆重疊交易，並從第三條管理連線觀察 PostgreSQL 的 wait event。
 - **適用範圍：** 使用 transaction advisory lock 協調配對、封鎖、唯一性或其他跨請求競爭條件的 PostgreSQL 服務。
-- **本專案做法：** `supabase/tests/block_match_concurrency.test.ts` 以兩個 `pg` client 先取得封鎖，再發出隨機配對 RPC；第三條連線觀察 matcher 是否等待 `pg_stat_activity` 的 advisory lock。封鎖交易提交後，配對 RPC 應回傳 `waiting`，不能把已封鎖玩家配成對手。測試只允許 loopback 主機，並應在一次性空白 PostgreSQL 16 資料庫執行；GitHub Actions 的獨立 job 於 run 43 通過。這不等同 Supabase Auth、Realtime、RLS 或跨裝置驗證。
+- **本專案做法：** `supabase/tests/block_match_concurrency.test.ts` 以封鎖 client 持有交易鎖、第二個 client 分別呼叫 `queue_for_match` 和 `join_invite_room`，第三條管理連線透過 `pg_stat_activity` 確認兩個請求確實等待 advisory lock。封鎖提交後，配對 RPC 回傳 `waiting`，邀請加入因 `Room unavailable` 被拒絕。run 45 的 PostgreSQL 16 job 通過。測試只允許 loopback 主機，應在一次性空白資料庫執行；它不等同 Supabase Auth、Realtime、RLS 或跨裝置驗證。
 
 ## SECURITY DEFINER 函式要固定空 search_path
 
@@ -172,7 +172,7 @@
 
 - **經驗：** 檢舉和封鎖不能只在前端隱藏玩家或接受用戶端指定的被檢舉者 ID。後端應從登入者和同房成員關係推導對象；封鎖必須同時排除隨機配對並阻擋邀請房加入；檢舉表不應授予一般玩家直接讀取權。檢舉與處分也要分開，避免惡意檢舉自動造成封號。
 - **適用範圍：** 有匿名帳號或隨機配對的雙人遊戲、社群配對、媒合平台及其他讓使用者彼此互動的產品。
-- **本專案做法：** `block_room_opponent` 和 `submit_player_report` 只接受房間 ID，再由伺服器驗證登入者是房間成員並找出對方；封鎖清單只由本人專屬 RPC 操作，雙向封鎖會跳過隨機配對並阻擋邀請房加入。封鎖寫入、配對和邀請加入使用相同的 transaction advisory lock，將封鎖新增和新配對／加入的檢查排成明確先後；PGlite 檢查三個 RPC 共用鎖值，獨立 PostgreSQL 16 多連線測試則在 run 43 確認配對確實等待封鎖交易並讀取提交後狀態。Supabase 環境的 Auth、RLS、pg_cron 和實際審查營運仍須另驗。檢舉一房一筆、說明最多 500 字、案件最多保留 180 天；一般登入者不能直接讀取檢舉表，刪除帳號會解除案件與帳號 ID 的連結。PGlite 已預檢主要權限與規則。
+- **本專案做法：** `block_room_opponent` 和 `submit_player_report` 只接受房間 ID，再由伺服器驗證登入者是房間成員並找出對方；封鎖清單只由本人專屬 RPC 操作，雙向封鎖會跳過隨機配對並阻擋邀請房加入。封鎖寫入、配對和邀請加入使用相同的 transaction advisory lock，將封鎖新增和新配對／加入的檢查排成明確先後；PGlite 檢查三個 RPC 共用鎖值，獨立 PostgreSQL 16 多連線測試則在 run 45 驗證配對與邀請加入確實等待封鎖交易並讀取提交後狀態。Supabase 環境的 Auth、RLS、pg_cron 和實際審查營運仍須另驗。檢舉一房一筆、說明最多 500 字、案件最多保留 180 天；一般登入者不能直接讀取檢舉表，刪除帳號會解除案件與帳號 ID 的連結。PGlite 已預檢主要權限與規則。
 - **操作限制：** 服務端可用帳號限量降低重複開房／排隊，但匿名帳號可重新建立，不能取代 IP／裝置層級風控。若尚無值班審查人員和聯絡方式，介面要明說檢舉不會即時有人處理，且不能把它當成緊急支援管道。
 
 ## 靜態前端的帳號刪除要經過驗證過的後端函式

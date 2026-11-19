@@ -12,7 +12,7 @@
 - 匯出 1080×1920 結果分享卡；可呼叫系統分享面板或下載 PNG。Instagram 交接仍需用實機確認。
 - 可在手機與桌面瀏覽器操作。
 
-目前工作區沒有 Supabase 專案 URL／公開 key，因此登入與真人服務入口停用，使用者只能玩本機示範。六份資料庫 migration 已在 PGlite 預檢環境套用，10 項可重複執行的 migration 回歸測試涵蓋雙人作答、隨機配對、封鎖競態序列化、歷史分頁與默契排名、本人紀錄讀寫權限、資料保留期限、服務端限量、安全 RPC 及刪除帳號時的資料收尾；另有 PostgreSQL 16 多連線競態整合測試在獨立 CI job 執行。這些檢查不代表 Supabase 線上設定、Realtime、RLS、Edge Function 或跨裝置流程已驗證。
+目前工作區沒有 Supabase 專案 URL／公開 key，因此登入與真人服務入口停用，使用者只能玩本機示範。六份資料庫 migration 已在 PGlite 預檢環境套用，10 項可重複執行的 migration 回歸測試涵蓋雙人作答、隨機配對、封鎖序列化、歷史分頁與默契排名、本人紀錄讀寫權限、資料保留期限、服務端限量、安全 RPC 及刪除帳號時的資料收尾；另有 PostgreSQL 16 多連線競態整合測試，在獨立 CI job 驗證封鎖與配對及邀請加入。這些檢查不代表 Supabase 線上設定、Realtime、RLS、Edge Function 或跨裝置流程已驗證。
 
 ## Supabase Auth 設定
 
@@ -63,7 +63,7 @@ deno test --allow-read --allow-net supabase/tests/migrations.test.ts
 
 10 項測試會自動依檔名排序並套用 `supabase/migrations/` 中所有 SQL migration，涵蓋雙人作答揭曉與歷史摘要、主題相容的隨機配對和封鎖／取消、封鎖與配對／邀請加入共用交易鎖、歷史游標分頁與 90 天範圍、至少三局的共同點排名、本人歷史讀取與刪除權限、24／90／180 天清理、配對及開房限量、檢舉去重與封鎖、security-definer 函式的固定空 `search_path` 與匿名角色執行權限，以及刪除帳號時關閉房間、清除本人歷史、匿名化對手歷史並解除檢舉雙方的帳號連結。這些測試使用最小 Auth／角色 stub，不取代 Supabase 專案中的 Auth、Realtime、pg_cron、RLS 或跨裝置驗證。
 
-另有 `supabase/tests/block_match_concurrency.test.ts`，以兩個 PostgreSQL client 實際交錯執行封鎖和隨機配對交易，確認配對會等待封鎖 transaction advisory lock，且封鎖提交後不會配對。此測試會建立角色、schema 和資料，只允許 loopback 主機；請只用一次性的空白 PostgreSQL 16 資料庫，絕不可指向 Supabase 或其他正式資料庫。GitHub Actions 會在獨立 PostgreSQL service 執行此測試，並要求它通過後才部署 Pages：
+另有 `supabase/tests/block_match_concurrency.test.ts`，以兩個 PostgreSQL client 實際交錯執行封鎖、隨機配對和邀請加入交易，並透過第三條連線確認等待狀態。封鎖提交後，配對不會成功，邀請加入會被拒絕。此測試會建立角色、schema 和資料，只允許 loopback 主機；請只用一次性的空白 PostgreSQL 16 資料庫，絕不可指向 Supabase 或其他正式資料庫。GitHub Actions 會在獨立 PostgreSQL service 執行此測試，並要求它通過後才部署 Pages：
 
 ```sh
 $env:DATABASE_URL = "postgres://postgres:postgres@localhost:5432/commonality"
@@ -76,7 +76,7 @@ deno test --allow-env --allow-net --allow-read supabase/tests/block_match_concur
 
 ## GitHub Pages 部署
 
-Repository 的 `.github/workflows/pages.yml` 會將 `site/` 發布至 [GitHub Pages](https://310182-sketch.github.io/riddle-match/)。`github-pages` environment 保留分支保護，允許 `main` 和 `codex/commonality-quiz-prototype` 部署。每次部署前，workflow 會執行 Deno 型別／lint／格式檢查、PGlite migration 回歸測試、帳號刪除函式 request 測試、前端語法檢查，以及 PostgreSQL 16 多連線封鎖／配對競態測試；所有驗證 job 通過後才進入部署 job，Pages 寫入與 OIDC 權限僅授予部署 job。run 43 的 verify、block_race 和 deploy 均成功。此網站目前是原型，尚未設定 Supabase URL／key，真人登入及後端服務未啟用。
+Repository 的 `.github/workflows/pages.yml` 會將 `site/` 發布至 [GitHub Pages](https://310182-sketch.github.io/riddle-match/)。`github-pages` environment 保留分支保護，允許 `main` 和 `codex/commonality-quiz-prototype` 部署。每次部署前，workflow 會執行 Deno 型別／lint／格式檢查、PGlite migration 回歸測試、帳號刪除函式 request 測試、前端語法檢查，以及 PostgreSQL 16 多連線封鎖／配對／邀請加入競態測試；所有驗證 job 通過後才進入部署 job，Pages 寫入與 OIDC 權限僅授予部署 job。run 45 的 verify、block_race 和 deploy 均成功。此網站目前是原型，尚未設定 Supabase URL／key，真人登入及後端服務未啟用。
 
 ## 文件
 
