@@ -93,6 +93,10 @@
     $("[data-player-name]").textContent = state.nickname;
     $("[data-player-avatar]").textContent = state.nickname.slice(0, 1);
     $("[data-progress]").style.width = String((questionNumber / questionBank[state.topic].length) * 100) + "%";
+    const progress = $(".game-progress");
+    progress.setAttribute("aria-valuemax", String(questionBank[state.topic].length));
+    progress.setAttribute("aria-valuenow", String(questionNumber));
+    progress.setAttribute("aria-valuetext", "第 " + questionNumber + " 題，共 " + questionBank[state.topic].length + " 題");
 
     const answered = state.answers.length;
     const matches = state.answers.filter((answer) => answer.player === answer.opponent).length;
@@ -106,6 +110,7 @@
     $$(".answer-option").forEach((button, index) => {
       button.disabled = false;
       button.classList.remove("is-selected");
+      button.setAttribute("aria-pressed", "false");
       $(".option-copy", button).textContent = question.choices[index];
     });
     $("[data-reveal]").classList.add("hidden");
@@ -121,6 +126,7 @@
     $$(".answer-option").forEach((button, index) => {
       button.disabled = true;
       button.classList.toggle("is-selected", index === selectedIndex);
+      button.setAttribute("aria-pressed", String(index === selectedIndex));
     });
 
     $("[data-reveal-heading]").textContent = matched ? "你們找到一個共同點了" : "選擇不一樣，也多認識一點彼此";

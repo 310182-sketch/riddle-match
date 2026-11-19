@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=4">
+    <link rel="stylesheet" href="styles.css?v=5">
     <script src="app.js" defer></script>
   </head>
   <body>
@@ -94,7 +94,7 @@
             <button class="more-button" type="button" data-show-help aria-label="遊戲說明">?</button>
           </div>
 
-          <div class="game-progress" aria-label="作答進度"><span data-progress></span></div>
+          <div class="game-progress" role="progressbar" aria-label="題目進度" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" aria-valuetext="第 1 題，共 5 題"><span data-progress></span></div>
           <div class="game-grid">
             <section class="play-panel" aria-label="二選一問題">
               <div class="player-row">
@@ -107,8 +107,8 @@
                 <h1 id="game-title" class="game-question" data-question data-focus-target tabindex="-1">旅行時，你更喜歡哪一種安排？</h1>
                 <p class="question-instruction">先選你的答案，等雙方都答完再揭曉。</p>
                 <div class="answer-options" role="group" aria-label="選擇你的答案">
-                  <button class="answer-option" type="button" data-option="0"><span class="option-letter">A</span><span class="option-copy" data-option-copy="0">先規劃好行程</span><span class="option-check" aria-hidden="true">✓</span></button>
-                  <button class="answer-option" type="button" data-option="1"><span class="option-letter">B</span><span class="option-copy" data-option-copy="1">留點空白隨興走</span><span class="option-check" aria-hidden="true">✓</span></button>
+                  <button class="answer-option" type="button" data-option="0" aria-pressed="false"><span class="option-letter">A</span><span class="option-copy" data-option-copy="0">先規劃好行程</span><span class="option-check" aria-hidden="true">✓</span></button>
+                  <button class="answer-option" type="button" data-option="1" aria-pressed="false"><span class="option-letter">B</span><span class="option-copy" data-option-copy="1">留點空白隨興走</span><span class="option-check" aria-hidden="true">✓</span></button>
                 </div>
                 <section class="reveal-panel hidden" data-reveal aria-live="polite" aria-labelledby="reveal-heading">
                   <div class="reveal-title"><span class="reveal-spark" aria-hidden="true">✦</span><div><b data-reveal-heading>你們找到共同點了</b><small data-reveal-copy>一樣的選擇，也許代表相似的喜好。</small></div></div>
