@@ -180,3 +180,9 @@
 - **經驗：** 使用 Deno URL import 的 Edge Function 若只固定套件主版本，重複部署時可能載入不同的 minor／patch 實作。以精確套件版本固定行為，並和瀏覽器端共用相同版本，可減少 API 差異與除錯變因；版本存在及 URL 可回應只能確認套件可取得，仍需 Deno 編譯和目標平台驗證。
 - **適用範圍：** Deno Edge Functions、透過 esm.sh 載入 npm 套件的服務，以及使用 CDN 的靜態前端。
 - **本專案做法：** `delete-account` 使用 `https://esm.sh/@supabase/supabase-js@2.119.2`，與瀏覽器載入的 Supabase JS 版本一致。確認 npm registry 版本存在且 esm.sh 回應 HTTP 200；將官方 Windows Deno 發布檔下載到暫存資料夾並核對 SHA-256 後，以 Deno 2.9.8 執行 `deno check`、`deno lint` 及 `deno fmt --check` 成功（初次格式檢查後套用 `deno fmt`）。PGlite 帳號刪除檢查亦通過；Edge Function 尚未部署，Supabase Auth Admin、Edge secrets、JWT gateway 與 CORS 仍待線上驗證。
+
+## 將 Edge Function 請求處理器與伺服器啟動分開
+
+- **經驗：** 將 HTTP request handler 匯出，並只在 `import.meta.main` 時啟動 `Deno.serve`，可以直接對 handler 執行本機測試，而不需要啟動監聽服務或使用真實第三方憑證。測試環境變數應在動態匯入 handler 前設定，避免模組快取讀到錯誤設定。
+- **適用範圍：** Supabase Edge Functions、Deno serverless handlers，以及需要驗證 CORS、HTTP method 和未登入錯誤分支的無伺服器 API。
+- **本專案做法：** `delete-account/index.ts` 匯出 `handleRequest`，測試匯入時不啟動 server；Deno 測試用暫存假設定覆蓋允許／拒絕的 preflight、origin 拒絕、非 POST 和缺少 Bearer token 五個分支。這些測試不驗證 Supabase gateway JWT、Auth Admin 刪除、真實 CORS 部署或資料庫 trigger，仍需在 Supabase 環境驗證。

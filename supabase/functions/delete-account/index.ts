@@ -34,7 +34,7 @@ function jsonResponse(
   return new Response(JSON.stringify(body), { status, headers });
 }
 
-Deno.serve(async (request: Request) => {
+export async function handleRequest(request: Request): Promise<Response> {
   const origin = request.headers.get("origin") ?? "";
   const headers = corsHeaders(origin);
 
@@ -95,4 +95,8 @@ Deno.serve(async (request: Request) => {
       error: "Account deletion could not be completed.",
     });
   }
-});
+}
+
+if (import.meta.main) {
+  Deno.serve(handleRequest);
+}
