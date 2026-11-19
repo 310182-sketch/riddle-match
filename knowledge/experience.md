@@ -104,9 +104,9 @@
 
 ## 沒有 Supabase 專案時可用 PGlite 預檢 SQL migration
 
-- **經驗：** PGlite 可在瀏覽器執行 PostgreSQL，讓 migration 在建立雲端專案前先做套用和 RPC smoke test。以最小 `auth.users`、`auth.uid()` 與角色 stub 模擬 Supabase 依賴，可提早發現 PostgreSQL／PLpgSQL 語法錯誤及核心資料流程問題。
+- **經驗：** PGlite 可在瀏覽器執行 PostgreSQL，讓 migration 在建立雲端專案前先做套用和 RPC 回歸測試。把最小 `auth.users`、`auth.uid()`、角色及登入 claim stub 寫進版本控制，可讓後續 migration 修改重複檢查 PostgreSQL／PLpgSQL 語法、權限邊界及核心資料流程，不必依賴一次性的手動 smoke test。
 - **適用範圍：** 使用 PostgreSQL、RPC、觸發器和 RLS 的 Supabase 專案，且本機沒有 Docker、PostgreSQL 或 Supabase CLI 時。
-- **本專案做法：** 在一次性 PGlite 資料庫依序套用四份 migration，完成雙人答題、歷史／排名、隨機配對、安全 RPC 和帳號刪除收尾預檢；另外確認非成員看不到房間、一般登入者不能直讀答案或檢舉表、封鎖會阻止重配和邀請加入、配對／開房限量、檢舉去重與 180 天清除，以及刪除帳號時關閉房間、匿名化對手歷史並解除檢舉帳號連結。此預檢不等同 Supabase 驗證：Auth claims、Realtime publication、pg_cron、Edge Function secret、CORS 及真實 RLS 執行環境仍須另測。
+- **本專案做法：** `supabase/tests/migrations.test.ts` 以固定版本的 PGlite 依序套用五份 migration，並可用 `deno test --allow-read --allow-net supabase/tests/migrations.test.ts` 重複執行。測試涵蓋 migration／權限、雙人答案揭曉與歷史、檢舉去重和封鎖、帳號刪除時關閉房間及移除案件雙方帳號 ID；這次回歸測試也找出並修正刪除帳號時仍保留另一方案件 ID 的資料清理缺口。此預檢不等同 Supabase 驗證：Auth claims、Realtime publication、pg_cron、Edge Function secret、CORS 及真實 RLS 執行環境仍須另測。
 
 ## 尚未連線的流程要讓示範狀態一眼可見
 

@@ -26,12 +26,12 @@
 
 ## 真人配對與後端
 
-- **狀態：** Supabase 為目前真人 MVP 的實作預設；四份 migration 已在 PGlite 本機預檢環境套用，並檢查邀請對局、雙人揭曉／推進、歷史排名、隨機配對、安全 RPC、帳號限量、帳號刪除收尾及基本 RLS 邊界；前端真人流程已接上 RPC 並以 mock 驗證，但尚未部署或在 Supabase 驗證。
+- **狀態：** Supabase 為目前真人 MVP 的實作預設；五份 migration 已在 PGlite 本機預檢環境套用，可重複執行的回歸測試檢查邀請對局、雙人揭曉／推進、歷史、安全 RPC、帳號刪除收尾及基本 RLS 邊界；前端真人流程已接上 RPC 並以 mock 驗證，但尚未部署或在 Supabase 驗證。
 - **決定：** 以 Supabase Anonymous Auth 驗證玩家、PostgreSQL RPC 執行建立房間／加入房間／原子配對與答案提交，Realtime 傳遞房間狀態。
 - **安全規則：** 答案留在資料庫；只有同一房間兩位玩家都完成作答後才回傳雙方答案。以 RLS 限制玩家資料存取，不開放用戶端直讀答案表；service role key 不放在前端。
 - **同步規則：** 揭曉後兩位玩家都按「下一題」才推進；先按的人等待對方。正式閒置時間、離線及重新連線行為仍需實測及定案。
 - **資料保存：** 房間、配對票券、暱稱及原始答案於結束／逾期後最多保留 24 小時；每位玩家的歷史摘要保存 90 天且可提前刪除；檢舉資料保存 180 天；封鎖清單保留至解除或刪除帳號。
-- **未完成條件：** 建立 Supabase 環境、套用四份 migration 和部署 Edge Function；在 Supabase 實測 RLS／Realtime／RPC 權限、清理排程和匿名 Auth；接上前端並用不同裝置驗證整局流程。PGlite 預檢不涵蓋 Supabase Auth、Realtime publication、pg_cron 或 Supabase 專案設定。
+- **未完成條件：** 建立 Supabase 環境、套用五份 migration 和部署 Edge Function；在 Supabase 實測 RLS／Realtime／RPC 權限、清理排程和匿名 Auth；接上前端並用不同裝置驗證整局流程。PGlite 預檢不涵蓋 Supabase Auth、Realtime publication、pg_cron 或 Supabase 專案設定。
 
 ## 匿名與社群登入
 
@@ -42,7 +42,7 @@
 
 ## 自助刪除帳號
 
-- **狀態：** 前端確認流程、Supabase Edge Function 草稿與 Auth 刪除前關閉進行中房間的 migration 已完成；目前範本以 `accountDeletionEnabled: false` 停用入口，尚未部署或真人驗證。
+- **狀態：** 前端確認流程、Supabase Edge Function 草稿、Auth 刪除前關閉進行中房間及解除檢舉雙方 ID 連結的 migration 已完成；本機 request 與 PGlite 回歸測試通過。目前範本以 `accountDeletionEnabled: false` 停用入口，尚未部署或真人驗證。
 - **決定：** 只允許目前已驗證的登入者刪除自己的 Auth 帳號。前端呼叫 `delete-account` Edge Function；函式驗證 JWT，從 token 取得使用者 ID，再以僅存於 Supabase 後端的 service role 呼叫 Auth Admin 刪除。使用精確 origin allow list，未設定時拒絕瀏覽器呼叫。
 - **資料處理：** 刪除前把此帳號參與的 waiting／playing 房間標為 abandoned，移除邀請碼並取消等待票券；Auth 刪除後 cascade 清除本人歷史和封鎖。其他玩家仍保存的歷史會匿名化對手暱稱；既有檢舉清空 reporter／reported 帳號連結，但檢舉說明依 180 天保存期限保留。
 - **上線界線：** 只有 Edge Function 已部署、`ALLOWED_ORIGINS` 和後端 service role 設定完成、並驗證帳號清理後，才能在公開 `site/supabase-config.js` 將 `accountDeletionEnabled` 設為 `true`。不得把 service role key 放入靜態網站。
@@ -79,7 +79,7 @@
 
 ## 檢舉、封鎖與個資告知
 
-- **狀態：** MVP 政策、前端入口與第三份 migration 已完成草稿；安全 RPC、私有資料存取、雙向配對排除和服務端限量已通過 PGlite 預檢。第四份 migration 另補上帳號刪除時關閉房間的處理。Supabase 線上驗證及人工審查營運流程仍待完成。
+- **狀態：** MVP 政策、前端入口與安全 migration 已完成草稿；安全 RPC、私有資料存取、雙向配對排除和服務端限量已通過 PGlite 預檢。第五份 migration 補上刪除任一涉事帳號時解除檢舉雙方 ID 連結。Supabase 線上驗證及人工審查營運流程仍待完成。
 - **個資最小化：** 只處理 Supabase 帳號識別碼、登入 provider 傳回的帳號識別資料、玩家暱稱、主題、配對／房間狀態、作答及玩家要求保存的歷史摘要；不要求玩家交換聯絡方式。暱稱限 12 字。原始房間、配對票券及答案最多保留 24 小時，個人歷史保存 90 天；示範模式的資料只留在瀏覽器，不送出或保存。
 - **封鎖：** 玩家可在真人對局中或完局後封鎖對方；封鎖為單向，可從自己的封鎖清單解除。若任一方封鎖另一方，隨機配對會略過該配對；邀請房也不得讓兩方進入同一房間。封鎖清單只對封鎖者可讀，刪除帳號時清除封鎖關係。
 - **檢舉：** 玩家可在真人房間檢舉同房玩家，選擇騷擾／仇恨／色情／垃圾內容／其他，附最多 500 字說明。每個玩家每個房間只能建立一筆檢舉；不保存原始答案或額外聊天內容。檢舉資料只對服務端審查人員可讀，保留 180 天後清除；刪除帳號時移除檢舉人和被檢舉人的帳號連結，但保留限期內的檢舉內容。檢舉不自動封禁或處分，避免單筆惡意檢舉直接影響帳號。

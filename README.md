@@ -12,7 +12,7 @@
 - 匯出 1080×1920 結果分享卡；可呼叫系統分享面板或下載 PNG。Instagram 交接仍需用實機確認。
 - 可在手機與桌面瀏覽器操作。
 
-目前工作區沒有 Supabase 專案 URL／公開 key，因此登入與真人服務入口停用，使用者只能玩本機示範。四份資料庫 migration 已在 PGlite 預檢環境套用，並驗證主要遊戲、安全 RPC、資料存取限制、帳號限量、檢舉保存期限及刪除帳號時的資料收尾；這不代表 Supabase 線上設定、Realtime、RLS、Edge Function 或跨裝置流程已驗證。
+目前工作區沒有 Supabase 專案 URL／公開 key，因此登入與真人服務入口停用，使用者只能玩本機示範。五份資料庫 migration 已在 PGlite 預檢環境套用，並有可重複執行的 migration 回歸測試驗證主要遊戲、安全 RPC、資料存取限制、檢舉期限及刪除帳號時的資料收尾；這不代表 Supabase 線上設定、Realtime、RLS、Edge Function 或跨裝置流程已驗證。
 
 ## Supabase Auth 設定
 
@@ -51,7 +51,17 @@ supabase secrets set ALLOWED_ORIGINS="https://<owner>.github.io,http://localhost
 
 ## 真人配對後端草稿
 
-`supabase/migrations/` 收錄 Supabase PostgreSQL schema 與 RPC，包含隨機配對、12 位邀請代碼、雙人作答同步、玩家各自保存 90 天的對局摘要、共同點排名、封鎖／檢舉、服務端限量及帳號刪除清理；房間、配對票券和原始作答最多保留 24 小時，檢舉保存 180 天。四份 migration 已在本機 PGlite 預檢環境套用；這不代表已部署至 Supabase，也不驗證 Supabase Auth、Realtime、pg_cron 或線上 RLS。正式連接前須建立 Supabase 專案、啟用匿名登入、依序套用並驗證 migration、確認 RLS／Realtime／RPC 權限與清理排程，再設定公開用戶端 URL 與 anon key。不要將 service role key 放進靜態網站。
+`supabase/migrations/` 收錄 Supabase PostgreSQL schema 與 RPC，包含隨機配對、12 位邀請代碼、雙人作答同步、玩家各自保存 90 天的對局摘要、共同點排名、封鎖／檢舉、服務端限量及帳號刪除清理；房間、配對票券和原始作答最多保留 24 小時，檢舉保存 180 天。五份 migration 已在本機 PGlite 預檢環境套用；這不代表已部署至 Supabase，也不驗證 Supabase Auth、Realtime、pg_cron 或線上 RLS。正式連接前須建立 Supabase 專案、啟用匿名登入、依序套用並驗證 migration、確認 RLS／Realtime／RPC 權限與清理排程，再設定公開用戶端 URL 與 anon key。不要將 service role key 放進靜態網站。
+
+### 本機 migration 回歸測試
+
+使用 Deno 與 PGlite 在本機建立暫存 PostgreSQL，依序套用所有 migration，檢查核心資料流程和資料權限：
+
+```sh
+deno test --allow-read --allow-net supabase/tests/migrations.test.ts
+```
+
+測試涵蓋雙人作答揭曉與歷史摘要、檢舉去重與封鎖、刪除帳號時關閉房間及解除檢舉雙方的帳號連結。這些測試使用最小 Auth／角色 stub，不能取代 Supabase 專案中的 Auth、Realtime、pg_cron、RLS 和跨裝置驗證。
 
 ## 本機預覽
 
