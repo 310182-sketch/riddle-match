@@ -45,6 +45,9 @@ jobs:
       - name: Test matchmaking cancellation race in headless Chrome
         run: node scripts/matchmaking-cancel-race.mjs
 
+      - name: Test active room recovery in headless Chrome
+        run: node scripts/active-room-recovery.mjs
+
   block_race:
     runs-on: ubuntu-latest
     services:

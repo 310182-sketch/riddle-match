@@ -106,7 +106,7 @@
 
 - **經驗：** PGlite 可在瀏覽器執行 PostgreSQL，讓 migration 在建立雲端專案前先做套用和 RPC 回歸測試。把最小 `auth.users`、`auth.uid()`、角色及登入 claim stub 寫進版本控制，可讓後續 migration 修改重複檢查 PostgreSQL／PLpgSQL 語法、權限邊界及核心資料流程，不必依賴一次性的手動 smoke test。
 - **適用範圍：** 使用 PostgreSQL、RPC、觸發器和 RLS 的 Supabase 專案，且本機沒有 Docker、PostgreSQL 或 Supabase CLI 時。
-- **本專案做法：** `supabase/tests/migrations.test.ts` 以固定版本的 PGlite 自動讀取 `supabase/migrations/` 內所有 SQL 檔案，再按檔名順序套用；新增 migration 不必再更新測試中的重複清單。測試可用 `deno test --allow-read --allow-net supabase/tests/migrations.test.ts` 重複執行。10 項測試涵蓋 migration／權限、security-definer 函式固定空 `search_path` 且不能由 `anon` 執行、雙人答案揭曉與歷史、隨機配對主題相容／封鎖排除／取消、封鎖與配對／邀請加入共用交易鎖、歷史游標分頁／90 天範圍／三局排名門檻、本人歷史讀取和刪除權限、24／90／180 天清理、配對與開房限量、檢舉，以及帳號刪除時關閉房間、移除本人歷史、匿名化對手歷史並移除案件雙方帳號 ID。測試需以不同 JWT subject 呼叫 security-definer RPC，驗證讀取與刪除都只作用於該玩家資料，並確認未登入呼叫被拒絕；刪除帳號測試也應同時核對 cascade、匿名化和保留期限，避免只看 Auth row 是否消失。所有應用 security-definer 函式都固定空 `search_path`，回歸測試直接檢查 `pg_proc.proconfig`，並確認匿名角色沒有任何應用 security-definer 函式的執行權。PGlite 的共用鎖檢查只能驗證不變條件；PostgreSQL 16 多連線整合測試另已驗證封鎖與配對／邀請加入、兩種帳號限量競態。這些本機檢查仍不等同 Supabase Auth／Realtime／pg_cron／RLS 環境驗證。
+- **本專案做法：** `supabase/tests/migrations.test.ts` 以固定版本的 PGlite 自動讀取 `supabase/migrations/` 內所有 SQL 檔案，再按檔名順序套用；新增 migration 不必再更新測試中的重複清單。測試可用 `deno test --allow-read --allow-net supabase/tests/migrations.test.ts` 重複執行。11 項測試涵蓋 migration／權限、本人進行中房間恢復權限、security-definer 函式固定空 `search_path` 且不能由 `anon` 執行、雙人答案揭曉與歷史、隨機配對主題相容／封鎖排除／取消、封鎖與配對／邀請加入共用交易鎖、歷史游標分頁／90 天範圍／三局排名門檻、本人歷史讀取和刪除權限、24／90／180 天清理、配對與開房限量、檢舉，以及帳號刪除時關閉房間、移除本人歷史、匿名化對手歷史並移除案件雙方帳號 ID。測試需以不同 JWT subject 呼叫 security-definer RPC，驗證讀取與刪除都只作用於該玩家資料，並確認未登入呼叫被拒絕；刪除帳號測試也應同時核對 cascade、匿名化和保留期限，避免只看 Auth row 是否消失。所有應用 security-definer 函式都固定空 `search_path`，回歸測試直接檢查 `pg_proc.proconfig`，並確認匿名角色沒有任何應用 security-definer 函式的執行權。PGlite 的共用鎖檢查只能驗證不變條件；PostgreSQL 16 多連線整合測試另已驗證封鎖與配對／邀請加入、兩種帳號限量競態。這些本機檢查仍不等同 Supabase Auth／Realtime／pg_cron／RLS 環境驗證。
 
 ## 多連線交易競態要用真實 PostgreSQL 驗證
 
@@ -143,6 +143,12 @@
 - **經驗：** GitHub Pages 可以載入 Supabase browser client 並支援 PKCE OAuth；若把 project URL／anon key 和 provider 開關放在獨立 client 設定檔，前端整合可先完成，之後再由專案管理者提供公開設定。未設定或 SDK 載入失敗時停用登入按鈕，可避免原型顯示看似成功的登入；provider secrets 仍必須只存後端。
 - **適用範圍：** 靜態託管網站需要匿名帳號、OAuth、PKCE callback 或逐步遷移到雲端後端的產品原型。
 - **本專案做法：** `site/supabase-config.js` 僅包含公開 URL／anon key 與 provider 設定；匿名登入、OAuth、PKCE session 恢復和 identity linking 使用具 SRI 的 Supabase JS v2.119.2。只有已配置的 provider 才可點擊，缺少服務設定時保留本機示範。mock client 可先檢查前端狀態和 provider ID，但不能取代 Supabase Manual Linking、實際 provider callback 及 GitHub Pages redirect URL 的驗證。
+
+## Session 恢復不會自動恢復伺服器上的遊戲房間
+
+- **經驗：** Auth SDK 保存並還原登入 session，只能證明玩家身分仍有效；房間、票券等伺服器狀態仍需以該身分重新查詢。不要把瀏覽器曾保存的 session 誤當成房間已恢復。
+- **適用範圍：** 有登入 session 和伺服器端即時狀態的單頁應用，例如多人房間、工作佇列或未完成的交易流程。
+- **本專案做法：** Auth session 初始化後呼叫 `get_my_active_room`，RPC 從 `auth.uid()` 推導玩家並只回傳本人未結束房間；前端在帳號切換或導航後丟棄過期回應。PGlite 驗證本人／非成員權限，headless Chrome mock 確認重新載入會接回房間並載入目前題目。跨裝置行為仍需在 Supabase 環境驗證。
 
 ## 私人資料請求要綁定登入帳號和請求代次
 

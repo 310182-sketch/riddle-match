@@ -171,6 +171,9 @@ Deno.test("Supabase migrations apply in order and protect private tables", async
       report_read: boolean;
       history_read: boolean;
       history_rpc: string | null;
+      active_room_rpc: string | null;
+      active_room_authenticated_execute: boolean;
+      active_room_anonymous_execute: boolean;
       security_definer_count: number;
       security_definer_without_fixed_search_path: number;
       anonymous_security_definer_execute_count: number;
@@ -187,6 +190,9 @@ Deno.test("Supabase migrations apply in order and protect private tables", async
         has_table_privilege('authenticated', 'public.player_safety_reports', 'select') as report_read,
         has_table_privilege('authenticated', 'public.player_match_history', 'select') as history_read,
         to_regprocedure('public.get_my_match_history(integer,timestamp with time zone,uuid)')::text as history_rpc,
+        to_regprocedure('public.get_my_active_room()')::text as active_room_rpc,
+        has_function_privilege('authenticated', 'public.get_my_active_room()', 'execute') as active_room_authenticated_execute,
+        has_function_privilege('anon', 'public.get_my_active_room()', 'execute') as active_room_anonymous_execute,
         (
           select count(*)::integer
           from pg_proc p
@@ -223,6 +229,17 @@ Deno.test("Supabase migrations apply in order and protect private tables", async
     assertEquals(row.report_read, false, "direct report table access");
     assertEquals(row.history_read, false, "direct history table access");
     assert(row.history_rpc, "history RPC is installed");
+    assert(row.active_room_rpc, "active room recovery RPC is installed");
+    assertEquals(
+      row.active_room_authenticated_execute,
+      true,
+      "authenticated player can recover their active room",
+    );
+    assertEquals(
+      row.active_room_anonymous_execute,
+      false,
+      "anonymous role cannot recover an active room",
+    );
     assert(
       row.security_definer_count > 0,
       "security-definer functions are installed",
@@ -241,6 +258,131 @@ Deno.test("Supabase migrations apply in order and protect private tables", async
       row.delete_trigger,
       "auth_users_close_rooms_before_delete",
       "account deletion cleanup trigger",
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+Deno.test("active room recovery only returns the caller's waiting or playing room", async () => {
+  const db = await createDatabase();
+  try {
+    await insertUsers(db);
+    const created = await rpc(
+      db,
+      users.host,
+      "select public.create_invite_room($1, $2) as response",
+      ["travel", "Host"],
+    );
+    const { room_id: roomId, invite_code: inviteCode } = created;
+
+    const guestWithoutRoom = await rpc(
+      db,
+      users.guest,
+      "select public.get_my_active_room() as response",
+    );
+    assertEquals(
+      guestWithoutRoom.status,
+      "none",
+      "another player cannot discover the host room",
+    );
+
+    const hostWaitingRoom = await rpc(
+      db,
+      users.host,
+      "select public.get_my_active_room() as response",
+    );
+    assertEquals(
+      hostWaitingRoom.room_id,
+      roomId,
+      "host's waiting room is restored",
+    );
+    assertEquals(
+      hostWaitingRoom.status,
+      "waiting",
+      "waiting state is restored",
+    );
+    assertEquals(
+      hostWaitingRoom.invite_code,
+      inviteCode,
+      "host can recover their invite code",
+    );
+    assertEquals(
+      hostWaitingRoom.created_by,
+      true,
+      "host is identified as creator",
+    );
+    assertEquals(
+      hostWaitingRoom.nickname,
+      "Host",
+      "own room nickname is returned",
+    );
+    assertEquals(
+      hostWaitingRoom.opponent_nickname,
+      null,
+      "no opponent is exposed before joining",
+    );
+
+    await rpc(
+      db,
+      users.guest,
+      "select public.join_invite_room($1, $2) as response",
+      [inviteCode, "Guest"],
+    );
+    const hostPlayingRoom = await rpc(
+      db,
+      users.host,
+      "select public.get_my_active_room() as response",
+    );
+    const guestPlayingRoom = await rpc(
+      db,
+      users.guest,
+      "select public.get_my_active_room() as response",
+    );
+    assertEquals(
+      hostPlayingRoom.status,
+      "playing",
+      "host recovers a playing room",
+    );
+    assertEquals(
+      guestPlayingRoom.room_id,
+      roomId,
+      "guest recovers only their joined room",
+    );
+    assertEquals(
+      guestPlayingRoom.status,
+      "playing",
+      "guest playing state is restored",
+    );
+    assertEquals(
+      guestPlayingRoom.invite_code,
+      null,
+      "invite code is hidden after joining",
+    );
+    assertEquals(
+      guestPlayingRoom.opponent_nickname,
+      "Host",
+      "joined player sees their opponent nickname",
+    );
+    assertEquals(
+      hostPlayingRoom.opponent_nickname,
+      "Guest",
+      "host sees their joined opponent nickname",
+    );
+
+    const outsiderWithoutRoom = await rpc(
+      db,
+      users.outsider,
+      "select public.get_my_active_room() as response",
+    );
+    assertEquals(
+      outsiderWithoutRoom.status,
+      "none",
+      "non-member cannot discover the room by ID",
+    );
+    await assertRejects(
+      () => rpc(db, "", "select public.get_my_active_room() as response"),
+      "Authentication required",
     );
   } finally {
     await db.close();

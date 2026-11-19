@@ -124,6 +124,7 @@
   }
 
   function startMatching(mode = "demo") {
+    state.roomOperationId += 1;
     if (mode === "random" && authState.client && !authState.session?.user?.id) {
       announce("請先登入，再加入真人隨機配對。可先使用本機示範。");
       return;
@@ -568,6 +569,41 @@
     if (room.status === "waiting" && room.createdBy && room.inviteCode) {
       const pollId = ++state.roomPollId;
       scheduleRoomStatusCheck(room.roomId, pollId, room.userId, 1500);
+    }
+  }
+
+  async function restoreMyActiveRoom() {
+    const userId = authState.session?.user?.id;
+    if (!authState.client || !userId) return;
+
+    const operationId = ++state.roomOperationId;
+    try {
+      const { data, error } = await authState.client.rpc("get_my_active_room");
+      const activeView = document.querySelector("[data-view]:not(.hidden)");
+      if (operationId !== state.roomOperationId ||
+          authState.session?.user?.id !== userId ||
+          activeView?.dataset.view !== "home") return;
+      if (error) throw error;
+      if (!data || data.status === "none") return;
+      if (!data.room_id || !["waiting", "playing"].includes(data.status)) {
+        throw new Error("Unexpected active room response");
+      }
+
+      showLiveInviteRoom({
+        roomId: data.room_id,
+        inviteCode: data.invite_code || null,
+        topicKey: data.topic_key,
+        status: data.status,
+        expiresAt: data.expires_at,
+        opponentNickname: data.opponent_nickname,
+        createdBy: data.created_by === true,
+        userId
+      });
+      announce("已恢復你尚未結束的真人房間。");
+    } catch (error) {
+      if (operationId !== state.roomOperationId || authState.session?.user?.id !== userId) return;
+      console.warn("Could not restore active room", error);
+      announce("目前無法恢復進行中的房間，請確認連線後重新載入。");
     }
   }
 
@@ -1481,6 +1517,7 @@
         authState.session = session;
         authState.notice = "";
         if (previousUserId !== nextUserId) {
+          state.roomOperationId += 1;
           state.moderationRequestId += 1;
           state.moderationRoomId = null;
           state.moderationUserId = null;
@@ -1535,6 +1572,7 @@
       const { data, error } = await authState.client.auth.getSession();
       if (error) throw error;
       authState.session = data.session;
+      if (authState.session?.user?.id) await restoreMyActiveRoom();
     } catch (error) {
       console.warn("Supabase Auth initialization failed", error);
       authState.client = null;

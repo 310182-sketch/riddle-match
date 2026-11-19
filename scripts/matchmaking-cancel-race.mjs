@@ -173,7 +173,7 @@ function createTestPage() {
     "",
   );
   html = html.replace(/<link[^>]+fonts\.(?:googleapis|gstatic)\.com[^>]*>\s*/g, "");
-  const appScript = '<script src="app.js?v=8" defer></script>';
+  const appScript = '<script src="app.js?v=9" defer></script>';
   if (!html.includes(appScript)) throw new Error("Could not find the application script in site/index.html");
   html = html.replace(appScript, `${mockClient}\n    ${appScript}`);
   html = html.replace("</body>", `${browserTest}\n  </body>`);
