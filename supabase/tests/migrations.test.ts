@@ -173,6 +173,7 @@ Deno.test("Supabase migrations apply in order and protect private tables", async
       history_rpc: string | null;
       security_definer_count: number;
       security_definer_without_fixed_search_path: number;
+      anonymous_security_definer_execute_count: number;
       delete_trigger: string | null;
     }>(`
       select
@@ -201,6 +202,14 @@ Deno.test("Supabase migrations apply in order and protect private tables", async
             and p.prosecdef
             and not ('search_path=""' = any(coalesce(p.proconfig, array[]::text[])))
         ) as security_definer_without_fixed_search_path,
+        (
+          select count(*)::integer
+          from pg_proc p
+          join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname in ('public', 'private')
+            and p.prosecdef
+            and has_function_privilege('anon', p.oid, 'execute')
+        ) as anonymous_security_definer_execute_count,
         (select tgname from pg_trigger where tgname = 'auth_users_close_rooms_before_delete') as delete_trigger
     `);
     const row = result.rows[0];
@@ -222,6 +231,11 @@ Deno.test("Supabase migrations apply in order and protect private tables", async
       row.security_definer_without_fixed_search_path,
       0,
       "all application security-definer functions pin an empty search path",
+    );
+    assertEquals(
+      row.anonymous_security_definer_execute_count,
+      0,
+      "anonymous role cannot execute application security-definer functions",
     );
     assertEquals(
       row.delete_trigger,
