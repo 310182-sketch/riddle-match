@@ -22,7 +22,7 @@
 
 - **經驗：** Pages Actions 需要 pages: write 與 id-token: write 權限，repository 的 Pages source 也必須設為 GitHub Actions。
 - **適用範圍：** 使用 GitHub Actions 發布 GitHub Pages 網站。
-- **本專案做法：** workflow 已由功能分支觸發；`github-pages` environment 曾拒絕未列入允許清單的分支，加入精確分支政策後部署成功。`verify` job 執行 Deno 型別／lint／格式、PGlite migration 測試、Edge Function request 測試和前端語法檢查；另外以隔離的 PostgreSQL 16 service 執行封鎖、配對、邀請加入、開房和配對票券限量的多連線競態測試。`deploy` 必須等待所有驗證 job，並獨立取得 `pages: write` 與 `id-token: write`。部署失敗時先看實際失敗步驟與 annotation；run 48 曾回報找不到 `github-pages` artifact，run 50 的 verify、block_race 與 deploy 全部成功。runner 棄用警告和真正的部署錯誤要分開處理，也不能只憑 workflow 已觸發或排入佇列就宣稱網站已發布。
+- **本專案做法：** workflow 已由功能分支觸發；`github-pages` environment 曾拒絕未列入允許清單的分支，加入精確分支政策後部署成功。`verify` job 執行 Deno 型別／lint／格式、PGlite migration 測試、Edge Function request 測試和前端語法檢查；另外以隔離的 PostgreSQL 16 service 執行封鎖、配對、邀請加入、限量和取消的多連線競態測試。`deploy` 必須等待所有驗證 job，並獨立取得 `pages: write` 與 `id-token: write`。部署失敗時先看實際失敗步驟與 annotation；run 48 曾回報找不到 `github-pages` artifact，run 53 的 verify、block_race 與 deploy 全部成功。runner 棄用警告和真正的部署錯誤要分開處理，也不能只憑 workflow 已觸發或排入佇列就宣稱網站已發布。
 
 ## 靜態前端不可放伺服器祕密
 
@@ -112,7 +112,7 @@
 
 - **經驗：** 單一連線或 PGlite 的結構檢查能證明多個 RPC 使用相同 advisory lock，卻不能證明一筆交易持鎖時，另一筆交易真的等待並在提交後讀到新狀態。要驗證競態順序，需使用獨立連線同步製造兩筆重疊交易，並從第三條管理連線觀察 PostgreSQL 的 wait event。
 - **適用範圍：** 使用 transaction advisory lock 協調配對、封鎖、唯一性或其他跨請求競爭條件的 PostgreSQL 服務。
-- **本專案做法：** `supabase/tests/block_match_concurrency.test.ts` 以不同 client 交錯呼叫 `queue_for_match`、`join_invite_room` 和 `create_invite_room`，第三條管理連線透過 `pg_stat_activity` 確認配對、邀請加入及臨界值限量請求確實等待 advisory lock。封鎖提交後，配對 RPC 回傳 `waiting`，邀請加入因 `Room unavailable` 被拒絕；第七間邀請房和第十三張配對票券都會在先前交易提交後被限量 trigger 拒絕。run 50 的 PostgreSQL 16 job 通過。測試只允許 loopback 主機，應在一次性空白資料庫執行；它不等同 Supabase Auth、Realtime、RLS 或跨裝置驗證。
+- **本專案做法：** `supabase/tests/block_match_concurrency.test.ts` 以不同 client 交錯呼叫 `queue_for_match`、`join_invite_room`、`create_invite_room` 和 `cancel_matchmaking`，第三條管理連線透過 `pg_stat_activity` 確認 advisory／票券列鎖等待。封鎖提交後，配對 RPC 回傳 `waiting`，邀請加入因 `Room unavailable` 被拒絕；第七間邀請房和第十三張配對票券會被限量 trigger 拒絕。取消先鎖票券時配對會略過，配對先鎖時取消等待並回傳 `matched`。run 53 的 PostgreSQL 16 job 通過。測試只允許 loopback 主機，應在一次性空白資料庫執行；它不等同 Supabase Auth、Realtime、RLS 或跨裝置驗證。
 
 ## 計數式限量要與寫入交易序列化
 
@@ -172,13 +172,13 @@
 
 - **經驗：** 配對畫面不能只依靠前端倒數判定逾時；加入佇列後應保存服務端 ticket ID，輪詢權限檢查後的狀態，並在逾時或離開時取消票券。取消與配對成功同時發生時，應以伺服器最後狀態為準，避免成功配對後仍留在等待頁。
 - **適用範圍：** 隨機配對、工作佇列及其他有期限且可取消的非同步請求。
-- **本專案做法：** 前端使用 `queue_for_match` 取得票券，透過 `get_match_status` 輪詢並用 `cancel_matchmaking` 取消；服務端回報配對成功時轉入真人房間，逾時頁面可重新排隊。Chrome mock 已驗證配對成功、30 秒逾時重試與取消；Supabase 競態及實際逾時仍待線上環境驗證。
+- **本專案做法：** 前端使用 `queue_for_match` 取得票券，透過 `get_match_status` 輪詢並用 `cancel_matchmaking` 取消；服務端回報配對成功時轉入真人房間，逾時頁面可重新排隊。run 53 的 PostgreSQL 16 多連線測試驗證取消先鎖時配對略過該票券，配對先鎖時取消會等待並回報 `matched`。這驗證資料庫交易順序，不取代 Supabase Auth、Realtime 或跨裝置環境測試。
 
 ## 檢舉與封鎖要由伺服器確認房間身分和配對規則
 
 - **經驗：** 檢舉和封鎖不能只在前端隱藏玩家或接受用戶端指定的被檢舉者 ID。後端應從登入者和同房成員關係推導對象；封鎖必須同時排除隨機配對並阻擋邀請房加入；檢舉表不應授予一般玩家直接讀取權。檢舉與處分也要分開，避免惡意檢舉自動造成封號。
 - **適用範圍：** 有匿名帳號或隨機配對的雙人遊戲、社群配對、媒合平台及其他讓使用者彼此互動的產品。
-- **本專案做法：** `block_room_opponent` 和 `submit_player_report` 只接受房間 ID，再由伺服器驗證登入者是房間成員並找出對方；封鎖清單只由本人專屬 RPC 操作，雙向封鎖會跳過隨機配對並阻擋邀請房加入。封鎖寫入、配對和邀請加入使用相同的 transaction advisory lock，將封鎖新增和新配對／加入的檢查排成明確先後；PostgreSQL 16 多連線測試在 run 45 驗證封鎖交易確實阻塞配對與邀請加入，run 50 另驗證開房及配對票券限量競態。Supabase 環境的 Auth、RLS、pg_cron 和實際審查營運仍須另驗。檢舉一房一筆、說明最多 500 字、案件最多保留 180 天；一般登入者不能直接讀取檢舉表，刪除帳號會解除案件與帳號 ID 的連結。PGlite 已預檢主要權限與規則。
+- **本專案做法：** `block_room_opponent` 和 `submit_player_report` 只接受房間 ID，再由伺服器驗證登入者是房間成員並找出對方；封鎖清單只由本人專屬 RPC 操作，雙向封鎖會跳過隨機配對並阻擋邀請房加入。封鎖寫入、配對和邀請加入使用相同的 transaction advisory lock，將封鎖新增和新配對／加入的檢查排成明確先後；PostgreSQL 16 多連線測試在 run 45 驗證封鎖交易確實阻塞配對與邀請加入，run 50／53 再驗證開房、配對票券限量及取消／配對競態。Supabase 環境的 Auth、RLS、pg_cron 和實際審查營運仍須另驗。檢舉一房一筆、說明最多 500 字、案件最多保留 180 天；一般登入者不能直接讀取檢舉表，刪除帳號會解除案件與帳號 ID 的連結。PGlite 已預檢主要權限與規則。
 - **操作限制：** 服務端可用帳號限量降低重複開房／排隊，但匿名帳號可重新建立，不能取代 IP／裝置層級風控。若尚無值班審查人員和聯絡方式，介面要明說檢舉不會即時有人處理，且不能把它當成緊急支援管道。
 
 ## 靜態前端的帳號刪除要經過驗證過的後端函式

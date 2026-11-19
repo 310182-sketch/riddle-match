@@ -63,7 +63,7 @@ deno test --allow-read --allow-net supabase/tests/migrations.test.ts
 
 10 項測試會自動依檔名排序並套用 `supabase/migrations/` 中所有 SQL migration，涵蓋雙人作答揭曉與歷史摘要、主題相容的隨機配對和封鎖／取消、封鎖與配對／邀請加入共用交易鎖、歷史游標分頁與 90 天範圍、至少三局的共同點排名、本人歷史讀取與刪除權限、24／90／180 天清理、配對及開房限量、檢舉去重與封鎖、security-definer 函式的固定空 `search_path` 與匿名角色執行權限，以及刪除帳號時關閉房間、清除本人歷史、匿名化對手歷史並解除檢舉雙方的帳號連結。這些測試使用最小 Auth／角色 stub，不取代 Supabase 專案中的 Auth、Realtime、pg_cron、RLS 或跨裝置驗證。
 
-另有 `supabase/tests/block_match_concurrency.test.ts`，以 PostgreSQL 16 多連線實際交錯執行封鎖、隨機配對、邀請加入、邀請房限量和配對票券限量，並透過第三條管理連線確認請求等待 advisory lock。封鎖提交後，配對不會成功，邀請加入會被拒絕；第六間房及第十二張配對票券可建立，並行的第七次開房與第十三次配對請求會被限量 trigger 拒絕。此測試會建立角色、schema 和資料，只允許 loopback 主機；請只用一次性的空白 PostgreSQL 16 資料庫，絕不可指向 Supabase 或其他正式資料庫。GitHub Actions 會在獨立 PostgreSQL service 執行此測試，並要求它通過後才部署 Pages：
+另有 `supabase/tests/block_match_concurrency.test.ts`，以 PostgreSQL 16 多連線實際交錯執行封鎖、隨機配對、邀請加入、限量和取消。第三條管理連線會確認 advisory lock 與票券列鎖等待狀態。封鎖提交後配對不會成功，邀請加入會被拒絕；第六間房及第十二張票券可建立，第七次開房與第十三次配對請求會被拒絕。取消先鎖定票券時配對會略過；配對先鎖定時取消等待後回報 `matched`。此測試會建立角色、schema 和資料，只允許 loopback 主機；請只用一次性的空白 PostgreSQL 16 資料庫，絕不可指向 Supabase 或其他正式資料庫。GitHub Actions 會在獨立 PostgreSQL service 執行此測試，並要求它通過後才部署 Pages：
 
 ```sh
 $env:DATABASE_URL = "postgres://postgres:postgres@localhost:5432/commonality"
@@ -76,7 +76,7 @@ deno test --allow-env --allow-net --allow-read supabase/tests/block_match_concur
 
 ## GitHub Pages 部署
 
-Repository 的 `.github/workflows/pages.yml` 會將 `site/` 發布至 [GitHub Pages](https://310182-sketch.github.io/riddle-match/)。`github-pages` environment 保留分支保護，允許 `main` 和 `codex/commonality-quiz-prototype` 部署。每次部署前，workflow 會執行 Deno 型別／lint／格式檢查、PGlite migration 回歸測試、帳號刪除函式 request 測試、前端語法檢查，以及 PostgreSQL 16 多連線封鎖／配對／邀請加入／配額競態測試；所有驗證 job 通過後才進入部署 job，Pages 寫入與 OIDC 權限僅授予部署 job。run 50 的 verify、`block_race` 和 deploy 全部成功；run 48 曾因 Pages artifact 暫時無法讀取而失敗。此網站是原型，尚未設定 Supabase URL／key，真人登入及後端服務未啟用。
+Repository 的 `.github/workflows/pages.yml` 會將 `site/` 發布至 [GitHub Pages](https://310182-sketch.github.io/riddle-match/)。`github-pages` environment 保留分支保護，允許 `main` 和 `codex/commonality-quiz-prototype` 部署。每次部署前，workflow 會執行 Deno 型別／lint／格式檢查、PGlite migration 回歸測試、帳號刪除函式 request 測試、前端語法檢查，以及 PostgreSQL 16 多連線封鎖／配對／邀請加入／配額／取消競態測試；所有驗證 job 通過後才進入部署 job，Pages 寫入與 OIDC 權限僅授予部署 job。run 53 的 verify、`block_race` 和 deploy 全部成功；run 48 曾因 Pages artifact 無法讀取而失敗，之後已重新成功部署。此網站是原型，尚未設定 Supabase URL／key，真人登入及後端服務未啟用。
 
 ## 文件
 
