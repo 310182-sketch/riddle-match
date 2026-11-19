@@ -102,6 +102,12 @@
 - **適用範圍：** 使用版本化 SQL migration 管理 PostgreSQL、Supabase 或其他資料庫結構的專案。
 - **本專案做法：** 保留初版即時配對 migration，另建後續檔案加入邀請房間與歷史摘要。新檔案目前仍是草稿，尚未部署；部署前要在乾淨資料庫按版本順序套用並檢查權限和資料保留行為。
 
+## 沒有 Supabase 專案時可用 PGlite 預檢 SQL migration
+
+- **經驗：** PGlite 可在瀏覽器執行 PostgreSQL，讓 migration 在建立雲端專案前先做套用和 RPC smoke test。以最小 `auth.users`、`auth.uid()` 與角色 stub 模擬 Supabase 依賴，可提早發現 PostgreSQL／PLpgSQL 語法錯誤及核心資料流程問題。
+- **適用範圍：** 使用 PostgreSQL、RPC、觸發器和 RLS 的 Supabase 專案，且本機沒有 Docker、PostgreSQL 或 Supabase CLI 時。
+- **本專案做法：** 在一次性 PGlite 資料庫依序套用兩份 migration，建立兩位玩家並完成邀請房五題流程；驗證答案需雙方作答才揭曉、雙方確認才推進、歷史與三局排名、隨機配對，以及 outsider 看不到房間且不能直讀答案表。此預檢不等同 Supabase 驗證：Auth claims、Realtime publication、pg_cron、專案預設權限及真實 RLS 執行環境仍須另測。
+
 ## 尚未連線的流程要讓示範狀態一眼可見
 
 - **經驗：** 可操作的假代碼或等待畫面容易被當成真實服務；若明確說明無法跨裝置、未向伺服器驗證且不會保存紀錄，仍能展示介面而不誤導玩家。

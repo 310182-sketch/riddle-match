@@ -39,7 +39,7 @@ providers: {
 
 ## 真人配對後端草稿
 
-`supabase/migrations/` 收錄 Supabase PostgreSQL schema 與 RPC 草稿，包含隨機配對、12 位邀請代碼、雙人作答同步、玩家各自保存 90 天的對局摘要、共同點排名及房間原始資料 24 小時清除。Migration 尚未套用或驗證，也沒有連接目前的前端；目前網站仍是示範模式。正式連接前須建立 Supabase 專案、啟用匿名登入、依序套用並驗證 migration、確認 RLS／Realtime／RPC 權限與清理排程，再設定公開用戶端 URL 與 anon key。不要將 service role key 放進靜態網站。
+`supabase/migrations/` 收錄 Supabase PostgreSQL schema 與 RPC，包含隨機配對、12 位邀請代碼、雙人作答同步、玩家各自保存 90 天的對局摘要、共同點排名及房間原始資料 24 小時清除。兩份 migration 已在本機 PGlite 預檢環境套用，並測過邀請房五題流程、歷史排名、隨機配對和基本資料存取限制；這不代表已部署至 Supabase，也不驗證 Supabase Auth、Realtime、pg_cron 或線上 RLS。正式連接前須建立 Supabase 專案、啟用匿名登入、依序套用並驗證 migration、確認 RLS／Realtime／RPC 權限與清理排程，再設定公開用戶端 URL 與 anon key。不要將 service role key 放進靜態網站。
 
 ## 本機預覽
 

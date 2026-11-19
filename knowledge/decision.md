@@ -26,12 +26,12 @@
 
 ## 真人配對與後端
 
-- **狀態：** Supabase 為目前真人 MVP 的實作預設；隨機配對、邀請房間及歷史功能的 migration 草稿已建立，尚未部署或驗證。
+- **狀態：** Supabase 為目前真人 MVP 的實作預設；兩份 migration 已在 PGlite 本機預檢環境套用，並測過邀請對局、雙人揭曉／推進、歷史排名、隨機配對及基本 RLS 邊界；尚未部署或在 Supabase 驗證。
 - **決定：** 以 Supabase Anonymous Auth 驗證玩家、PostgreSQL RPC 執行建立房間／加入房間／原子配對與答案提交，Realtime 傳遞房間狀態。
 - **安全規則：** 答案留在資料庫；只有同一房間兩位玩家都完成作答後才回傳雙方答案。以 RLS 限制玩家資料存取，不開放用戶端直讀答案表；service role key 不放在前端。
 - **同步規則：** 揭曉後兩位玩家都按「下一題」才推進；先按的人等待對方。正式閒置時間、離線及重新連線行為仍需實測及定案。
 - **資料保存：** 房間、暱稱及原始答案於遊戲結束或離開後保留 24 小時；每位玩家另有自己的歷史摘要，保存 90 天，玩家可提前刪除。
-- **未完成條件：** 建立 Supabase 環境、套用並驗證 migration、檢查 RLS／Realtime／RPC 權限、接上前端並用不同裝置驗證整局流程。
+- **未完成條件：** 建立 Supabase 環境、套用 migration；在 Supabase 實測 RLS／Realtime／RPC 權限、清理排程和匿名 Auth；接上前端並用不同裝置驗證整局流程。PGlite 預檢不涵蓋 Supabase Auth、Realtime publication、pg_cron 或 Supabase 專案設定。
 
 ## 匿名與社群登入
 

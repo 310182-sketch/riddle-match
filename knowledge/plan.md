@@ -13,7 +13,7 @@
 - **階段：** 互動原型與第一輪瀏覽器版可用性檢查已完成；Supabase 隨機配對、邀請房間及個人歷史 migration 草稿已建立。原型已有首頁、主題選擇、示範配對、五題作答、逐題揭曉及結果頁。
 - **已驗證：** Chrome headless 在 320、360、390、768、1024、1440px 檢查首頁、遊戲及結果頁，皆無水平溢出；以鍵盤在六種寬度完成五題流程。已改善選項字級、觸控尺寸、焦點提示及作答狀態語意。
 - **仍是模擬：** 對方答案來自瀏覽器範例資料。尚未提供真實登入、建立／加入房間、真人隨機配對、跨裝置同步、遊戲歷史或共同點統計。結果頁已可產生 1080×1920 PNG，支援系統分享面板及下載備援；尚未在 iOS／Android 實機確認 Instagram 交接。
-- **後端：** `supabase/migrations/` 已包含即時對局、隨機配對、邀請房間、雙人歷史摘要及查詢 RPC 草稿；尚未建立 Supabase 專案、套用或執行驗證。尚無線上資料庫、Auth、Realtime 或已驗證的 RLS。
+- **後端：** 兩份 migration 已在本機 PGlite 預檢環境成功套用，並 smoke test 邀請房、五題雙人作答／揭曉、歷史、排名、隨機配對及資料存取限制。尚未建立 Supabase 專案；線上 Auth、Realtime、排程和 Supabase 環境 RLS 仍未驗證。
 - **資料政策：** 真人對局房間及原始答案保留到結束後 24 小時，另存玩家各自可查詢、可刪除的對局摘要 90 天；統計只計最近 90 天。這是目前採用的 MVP 預設，migration 擴充草稿已完成，尚未套用或部署驗證。
 - **登入與社群：** 已加入可選的 Supabase Auth 前端入口，包含匿名登入、Google／Facebook／X OAuth、Instagram／Threads custom provider 設定、PKCE session 恢復及匿名帳號 identity linking。Chrome mock client 已驗證登入狀態和 provider 呼叫；尚無 Supabase URL／anon key，登入按鈕目前停用，live login／callback／帳號 linking 仍未設定或驗證。平台限制見 [knowledge/decision.md](decision.md)。
 - **前端設計：** 已完成第一輪整體字級、留白、按鈕及主題選項版面整理，並加入房間、配對等待和歷史空狀態的操作預覽；已重跑六種寬度的三個主要頁面及五題鍵盤流程。真實成功／逾時狀態與後端資料仍待串接。
@@ -94,6 +94,7 @@
 - [x] 擴充 migration 草稿，加入 12 位邀請代碼、建立／加入房間 RPC、單一有效房間檢查及隨機配對互斥。
 - [x] 加入完成對局時的雙方私人歷史摘要、90 天查詢與保留、逐筆刪除、共同點排名及帳號刪除匿名化草稿。
 - [x] 加入可設定的 Supabase JS Auth client：支援匿名登入、Facebook／Google／X、以 custom provider ID 設定 Instagram／Threads、session 恢復與已登入匿名帳號的 identity linking；未設定時保留示範模式。
+- [x] 在本機 PGlite 套用兩份 migration，驗證邀請對局五題流程、雙方答完才揭曉／推進、歷史與默契排名、隨機配對，以及非成員房間 RLS 和答案表無直接讀取權。
 - [ ] 建立 Supabase 專案與開發／正式環境，啟用 Anonymous Auth，套用並實際驗證 migration。
 - [ ] 啟用 Supabase Manual Linking；設定本機與 GitHub Pages redirect allow list 及 Google／Facebook／X callback。
 - [ ] 完成 RLS、Realtime、RPC 權限和資料驗證；確保玩家只能查看有權存取的房間、答案與紀錄。
