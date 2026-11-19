@@ -98,7 +98,7 @@
 
 ## 發布
 
-- **現況：** 最新部署 workflow run 25 已完成但失敗；GitHub Pages 的 `github-pages` environment protection rules 拒絕 `codex/commonality-quiz-prototype`，本分支尚未發布。詳見 [Actions run 25](https://github.com/310182-sketch/riddle-match/actions/runs/44606377149)。
+- **現況：** 部署 workflow runs 25 與 26 均已完成但失敗；GitHub Pages 的 `github-pages` environment protection rules 拒絕 `codex/commonality-quiz-prototype`，本分支尚未發布。詳見 [run 25](https://github.com/310182-sketch/riddle-match/actions/runs/44606377149) 和 [run 26](https://github.com/310182-sketch/riddle-match/actions/runs/44606762800)。
 - **原因：** Actions 註解指出此分支不在允許部署的分支規則內，部署工作步驟尚未開始。
 - **決定：** 保留遠端 `main` 的猜謎版本，先發布本分支的二選一原型；真人後端及權限驗證完成後再發布連線版本。
 - **推薦：** 在 GitHub repository 的 github-pages environment 允許 codex/commonality-quiz-prototype 部署，再重跑 workflow；只加入此分支即可保留現有環境保護。此設定變更需先取得使用者確認。

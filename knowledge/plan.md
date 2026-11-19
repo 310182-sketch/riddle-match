@@ -17,7 +17,7 @@
 - **資料政策：** 真人房間、配對票券及原始答案最多保留 24 小時；個人歷史摘要保存 90 天且可逐筆刪除；檢舉資料保存 180 天；封鎖關係保留至解除或刪除帳號。這些是目前採用的 MVP 預設，尚未部署或在 Supabase 驗證。
 - **登入與社群：** 已加入可選的 Supabase Auth 前端入口，包含匿名登入、Google／Facebook／X OAuth、Instagram／Threads custom provider 設定、PKCE session 恢復及匿名帳號 identity linking。Chrome mock client 已驗證登入狀態和 provider 呼叫；尚無 Supabase URL／anon key，登入按鈕目前停用，live login／callback／帳號 linking 仍未設定或驗證。平台限制見 [knowledge/decision.md](decision.md)。
 - **前端設計：** 已完成第一輪整體字級、留白、按鈕及主題選項版面整理；房間、真人答題、隨機配對等待及歷史頁已接上 RPC，無設定時仍保留清楚標示的操作預覽。Chrome mock 驗證流程分支；六種寬度與鍵盤流程的前一輪檢查已通過。真人服務環境的實際網路狀態仍待驗證。
-- **發布：** 最新 Pages workflow run 25 因 `github-pages` 環境保護規則拒絕 `codex/commonality-quiz-prototype`，尚未部署；需允許此分支後再重新部署，詳見 [Actions run 25](https://github.com/310182-sketch/riddle-match/actions/runs/44606377149)。
+- **發布：** Pages workflow run 25 與 26 均因 `github-pages` 環境保護規則拒絕 `codex/commonality-quiz-prototype`，尚未部署；需允許此分支後再重新部署，詳見 [run 25](https://github.com/310182-sketch/riddle-match/actions/runs/44606377149) 和 [run 26](https://github.com/310182-sketch/riddle-match/actions/runs/44606762800)。
 - **安全營運：** 前端及後端草稿已提供同房檢舉、封鎖與解除封鎖、服務端配對／開房限量及隱私告知。此原型沒有人工審查人員或支援聯絡方式；正式公開前須建立案件審查、聯絡和緊急處理流程，不能宣稱檢舉會即時有人處理。
 - **工作區：** 原型位於 `site/`，可直接開啟 `site/index.html` 操作，不需安裝套件或建置。
 - **產品方向：** 遠端 `main` 保留原有猜謎版本；本分支依本計畫製作二選一共同點遊戲，詳見 [knowledge/decision.md](decision.md)。
