@@ -34,7 +34,7 @@ providers: {
 }
 ```
 
-瀏覽器以 Supabase JS v2.119.2 初始化匿名登入、OAuth、session 恢復及匿名帳號的 identity linking；CDN 檔案使用 SRI 固定完整性。未設定 URL／key 或 SDK 無法載入時，登入入口維持停用，示範流程仍可使用。登入尚未接上配對、歷史或統計服務。anon／publishable key 是公開用戶端設定；service role key 和各 provider client secret 僅能留在 Supabase 後端設定。
+瀏覽器以 Supabase JS v2.119.2 初始化匿名登入、OAuth、session 恢復及匿名帳號的 identity linking；CDN 檔案使用 SRI 固定完整性。未設定 URL／key 或 SDK 無法載入時，登入入口維持停用，示範流程仍可使用。配對、歷史及統計 RPC 已接入前端，但因尚無 Supabase 專案設定，真人登入和線上資料尚未驗證。anon／publishable key 是公開用戶端設定；service role key 和各 provider client secret 僅能留在 Supabase 後端設定。
 
 匿名帳號連結前，需在 Supabase Auth 設定中啟用 **Manual Linking**。OAuth redirect allow list 必須包含實際網站子路徑；本機應透過 HTTP localhost 預覽，而不是直接開啟 HTML 檔。
 
@@ -79,10 +79,11 @@ Repository 的 `.github/workflows/pages.yml` 會將 `site/` 發布至 GitHub Pag
 
 ## 下一步
 
-- 建立 Supabase 專案並填入 `site/supabase-config.js`，啟用 Anonymous Auth，套用並驗證 migration、RLS、Realtime 和資料清除排程；設定 Facebook、Google、X，並依 Meta 審查結果評估 Instagram、Threads custom OAuth。
-- 將前端示範流程接上真人配對 RPC，並用兩個不同裝置走完整局。
-- 在 iOS／Android 實機與 VoiceOver／TalkBack 檢查無障礙操作，收集玩家回饋。
+- 建立 Supabase 專案並填入 `site/supabase-config.js`，啟用 Anonymous Auth 和 Manual Linking，依序套用五份 migration，並在專案內驗證 RLS、Realtime、RPC 權限和資料清除排程。
+- 建立並設定 Facebook、Google、X provider app，驗證登入、callback、session 恢復和匿名帳號 linking；依 Meta 資格與 app review 結果評估 Instagram、Threads custom OAuth。
+- 部署帳號刪除 Edge Function，設定並驗證允許的 origin 和後端 service role secret，再驗證刪除帳號資料收尾。
+- 使用兩部裝置走完邀請房、隨機配對、答題、結果、歷史查詢和默契統計，並檢查封鎖、檢舉與帳號刪除權限。
+- 在 iOS／Android 實機與 VoiceOver／TalkBack 檢查無障礙操作、分享交接和文字放大，收集玩家回饋。
 - 建立人工檢舉審查、玩家聯絡及緊急升級流程；完成前不得宣稱檢舉有人即時處理。
-- 部署帳號刪除 Edge Function，設定並驗證允許的 origin 後再啟用前端按鈕。
-- 在正式 Supabase 專案和兩部不同裝置驗證 Auth、migration、RLS、Realtime、清理排程、封鎖、檢舉及帳號刪除。
 - 依公開服務地區覆核隱私告知與資料保存政策，並做行動裝置及讀屏檢查。
+- 在 repository 的 `github-pages` environment 規則允許功能分支後重跑 Pages workflow；維持 environment 保護設定，不改用其他部署路徑。
