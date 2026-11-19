@@ -183,7 +183,7 @@ Deno.test("account limits and block writes serialize concurrent requests", async
       quotaRequestFinished = true;
     });
     let quotaError: unknown = null;
-    const quotaRequestSettled = quotaRequestPromise.catch((error) => {
+    const quotaRequestSettled = quotaRequestPromise.catch((error: unknown) => {
       quotaError = error;
     });
     await waitForAdvisoryLock(
