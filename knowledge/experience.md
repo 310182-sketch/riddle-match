@@ -22,7 +22,7 @@
 
 - **經驗：** Pages Actions 需要 pages: write 與 id-token: write 權限，repository 的 Pages source 也必須設為 GitHub Actions。
 - **適用範圍：** 使用 GitHub Actions 發布 GitHub Pages 網站。
-- **本專案做法：** workflow 已由功能分支觸發；`github-pages` environment 曾拒絕未列入允許清單的分支，加入精確分支政策後部署成功。`verify` job 執行 Deno 型別／lint／格式、PGlite migration 測試、Edge Function request 測試和前端語法檢查；另外以隔離的 PostgreSQL 16 service 執行封鎖、配對、邀請加入及臨界值開房限量的多連線競態測試。`deploy` 必須等待所有驗證 job，並獨立取得 `pages: write` 與 `id-token: write`。部署失敗時先看實際失敗步驟與 annotation；run 48 的 verify 和 block_race 成功，但 deploy 明確回報找不到 `github-pages` artifact，公開網站仍是前一個成功部署的版本。runner 棄用警告和真正的部署錯誤要分開處理，也不能只憑 workflow 已觸發或排入佇列就宣稱網站已發布。
+- **本專案做法：** workflow 已由功能分支觸發；`github-pages` environment 曾拒絕未列入允許清單的分支，加入精確分支政策後部署成功。`verify` job 執行 Deno 型別／lint／格式、PGlite migration 測試、Edge Function request 測試和前端語法檢查；另外以隔離的 PostgreSQL 16 service 執行封鎖、配對、邀請加入、開房和配對票券限量的多連線競態測試。`deploy` 必須等待所有驗證 job，並獨立取得 `pages: write` 與 `id-token: write`。部署失敗時先看實際失敗步驟與 annotation；run 48 曾回報找不到 `github-pages` artifact，run 50 的 verify、block_race 與 deploy 全部成功。runner 棄用警告和真正的部署錯誤要分開處理，也不能只憑 workflow 已觸發或排入佇列就宣稱網站已發布。
 
 ## 靜態前端不可放伺服器祕密
 
@@ -106,19 +106,19 @@
 
 - **經驗：** PGlite 可在瀏覽器執行 PostgreSQL，讓 migration 在建立雲端專案前先做套用和 RPC 回歸測試。把最小 `auth.users`、`auth.uid()`、角色及登入 claim stub 寫進版本控制，可讓後續 migration 修改重複檢查 PostgreSQL／PLpgSQL 語法、權限邊界及核心資料流程，不必依賴一次性的手動 smoke test。
 - **適用範圍：** 使用 PostgreSQL、RPC、觸發器和 RLS 的 Supabase 專案，且本機沒有 Docker、PostgreSQL 或 Supabase CLI 時。
-- **本專案做法：** `supabase/tests/migrations.test.ts` 以固定版本的 PGlite 自動讀取 `supabase/migrations/` 內所有 SQL 檔案，再按檔名順序套用；新增 migration 不必再更新測試中的重複清單。測試可用 `deno test --allow-read --allow-net supabase/tests/migrations.test.ts` 重複執行。10 項測試涵蓋 migration／權限、security-definer 函式固定空 `search_path` 且不能由 `anon` 執行、雙人答案揭曉與歷史、隨機配對主題相容／封鎖排除／取消、封鎖與配對／邀請加入共用交易鎖、歷史游標分頁／90 天範圍／三局排名門檻、本人歷史讀取和刪除權限、24／90／180 天清理、配對與開房限量、檢舉，以及帳號刪除時關閉房間、移除本人歷史、匿名化對手歷史並移除案件雙方帳號 ID。測試需以不同 JWT subject 呼叫 security-definer RPC，驗證讀取與刪除都只作用於該玩家資料，並確認未登入呼叫被拒絕；刪除帳號測試也應同時核對 cascade、匿名化和保留期限，避免只看 Auth row 是否消失。所有應用 security-definer 函式都固定空 `search_path`，回歸測試直接檢查 `pg_proc.proconfig`，並確認匿名角色沒有任何應用 security-definer 函式的執行權。PGlite 的共用鎖檢查只能驗證不變條件；兩條請求連線加一條管理連線的 PostgreSQL 16 整合測試另已驗證封鎖交易確實會阻塞配對與邀請加入。其他限量競態和 Supabase Auth／Realtime／pg_cron／RLS 環境仍須另驗。
+- **本專案做法：** `supabase/tests/migrations.test.ts` 以固定版本的 PGlite 自動讀取 `supabase/migrations/` 內所有 SQL 檔案，再按檔名順序套用；新增 migration 不必再更新測試中的重複清單。測試可用 `deno test --allow-read --allow-net supabase/tests/migrations.test.ts` 重複執行。10 項測試涵蓋 migration／權限、security-definer 函式固定空 `search_path` 且不能由 `anon` 執行、雙人答案揭曉與歷史、隨機配對主題相容／封鎖排除／取消、封鎖與配對／邀請加入共用交易鎖、歷史游標分頁／90 天範圍／三局排名門檻、本人歷史讀取和刪除權限、24／90／180 天清理、配對與開房限量、檢舉，以及帳號刪除時關閉房間、移除本人歷史、匿名化對手歷史並移除案件雙方帳號 ID。測試需以不同 JWT subject 呼叫 security-definer RPC，驗證讀取與刪除都只作用於該玩家資料，並確認未登入呼叫被拒絕；刪除帳號測試也應同時核對 cascade、匿名化和保留期限，避免只看 Auth row 是否消失。所有應用 security-definer 函式都固定空 `search_path`，回歸測試直接檢查 `pg_proc.proconfig`，並確認匿名角色沒有任何應用 security-definer 函式的執行權。PGlite 的共用鎖檢查只能驗證不變條件；PostgreSQL 16 多連線整合測試另已驗證封鎖與配對／邀請加入、兩種帳號限量競態。這些本機檢查仍不等同 Supabase Auth／Realtime／pg_cron／RLS 環境驗證。
 
 ## 多連線交易競態要用真實 PostgreSQL 驗證
 
 - **經驗：** 單一連線或 PGlite 的結構檢查能證明多個 RPC 使用相同 advisory lock，卻不能證明一筆交易持鎖時，另一筆交易真的等待並在提交後讀到新狀態。要驗證競態順序，需使用獨立連線同步製造兩筆重疊交易，並從第三條管理連線觀察 PostgreSQL 的 wait event。
 - **適用範圍：** 使用 transaction advisory lock 協調配對、封鎖、唯一性或其他跨請求競爭條件的 PostgreSQL 服務。
-- **本專案做法：** `supabase/tests/block_match_concurrency.test.ts` 以不同 client 交錯呼叫 `queue_for_match`、`join_invite_room` 和 `create_invite_room`，第三條管理連線透過 `pg_stat_activity` 確認配對、邀請加入及臨界值開房限量請求確實等待 advisory lock。封鎖提交後，配對 RPC 回傳 `waiting`，邀請加入因 `Room unavailable` 被拒絕；同一帳號已建立第六間房後，並行第七次建立請求會被限量 trigger 拒絕。run 48 的 PostgreSQL 16 job 通過。測試只允許 loopback 主機，應在一次性空白資料庫執行；它不等同 Supabase Auth、Realtime、RLS 或跨裝置驗證。
+- **本專案做法：** `supabase/tests/block_match_concurrency.test.ts` 以不同 client 交錯呼叫 `queue_for_match`、`join_invite_room` 和 `create_invite_room`，第三條管理連線透過 `pg_stat_activity` 確認配對、邀請加入及臨界值限量請求確實等待 advisory lock。封鎖提交後，配對 RPC 回傳 `waiting`，邀請加入因 `Room unavailable` 被拒絕；第七間邀請房和第十三張配對票券都會在先前交易提交後被限量 trigger 拒絕。run 50 的 PostgreSQL 16 job 通過。測試只允許 loopback 主機，應在一次性空白資料庫執行；它不等同 Supabase Auth、Realtime、RLS 或跨裝置驗證。
 
 ## 計數式限量要與寫入交易序列化
 
 - **經驗：** 以 `count(*)` 判斷是否超過帳號限額時，兩筆並行寫入可能同時讀到低於上限的舊數字，最後都插入成功。限量檢查必須和相應 RPC 的寫入共用序列化交易鎖，並用真實多連線測試確認持鎖、提交後重新計數及拒絕超額的順序。
 - **適用範圍：** 以資料列計數實作每帳號每時段配額的 PostgreSQL API，例如配對票券、建立房間、邀請或其他限次操作。
-- **本專案做法：** `create_invite_room` 和 `queue_for_match` 在新增資料前都取得 transaction advisory lock `82420711`，限量 trigger 再分別檢查一小時內最多 6 個房間及 10 分鐘內最多 12 張配對票券。PGlite 驗證上限值；run 48 的 PostgreSQL 16 多連線測試也驗證開房達第六間後，並行第七次 RPC 會等待交易鎖並被 trigger 拒絕。配對票券的臨界值競態尚未直接測試。此鎖只保護使用這些 RPC 的一般應用流程，正式環境仍需確認權限沒有其他可繞過入口。
+- **本專案做法：** `create_invite_room` 和 `queue_for_match` 在新增資料前都取得 transaction advisory lock `82420711`，限量 trigger 再分別檢查一小時內最多 6 個房間及 10 分鐘內最多 12 張配對票券。PGlite 驗證上限值；run 50 的 PostgreSQL 16 多連線測試也驗證臨界值並行請求會等待交易鎖，再由 trigger 拒絕第七間房和第十三張配對票券。此鎖只保護使用這些 RPC 的一般應用流程，正式環境仍需確認權限沒有其他可繞過入口。
 
 ## SECURITY DEFINER 函式要固定空 search_path
 

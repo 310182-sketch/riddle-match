@@ -13,11 +13,11 @@
 - **階段：** 互動原型及第一輪瀏覽器版可用性檢查已完成；六份 Supabase migration 草稿、自助刪除帳號 Edge Function 和可重複執行的 PGlite migration 回歸測試已建立。前端已接上邀請房的真人答題、雙方完成才揭曉、雙方確認才前進、完局結果，以及隨機配對佇列、取消、30 秒逾時和重新排隊；Chrome mock 流程已驗證。另已加入玩家檢舉／封鎖、封鎖清單、隱私告知和受設定控制的刪除帳號入口；資料庫安全及刪除流程通過 PGlite 預檢。原型亦保留首頁、主題選擇、示範配對、五題作答和分享結果。
 - **已驗證：** Chrome headless 在 320、360、390、768、1024、1440px 檢查首頁、遊戲及結果頁，皆無水平溢出；以鍵盤在六種寬度完成五題流程。已改善選項字級、觸控尺寸、焦點提示及作答狀態語意。
 - **仍待線上驗證：** 工作區沒有 Supabase URL／公開 key，無法使用真實登入、房間或配對服務。邀請房答題與隨機配對前端已接上 RPC，並以 Chrome mock 驗證成功揭曉、雙方確認、結果讀取、配對成功、逾時重試及取消；尚未在 Supabase Realtime 或兩部裝置驗證。歷史頁查詢、分頁、默契排名及逐筆刪除 RPC 也已用 Chrome mock 驗證，但不能查詢真實對局。結果頁已能產生 1080×1920 PNG，支援系統分享面板及下載備援；尚未在 iOS／Android 實機確認 Instagram 交接。
-- **後端：** 本機 PGlite 預檢會自動依檔名排序並套用 `supabase/migrations/` 中所有 SQL migration；10 項可重複執行的回歸測試涵蓋 migration 權限、雙人揭曉與歷史、隨機配對相容／封鎖／取消、封鎖與配對／邀請加入共用交易鎖、歷史游標分頁與共同點排名門檻、本人歷史讀取與刪除權限、security-definer 函式固定空 `search_path` 且不能由匿名角色執行、24／90／180 天資料清理、配對／開房限量、檢舉，以及刪除帳號時關閉房間、移除本人歷史並匿名化對手歷史和檢舉帳號連結。run 48 的 PostgreSQL 16 多連線測試驗證封鎖交易與配對／邀請加入的先後，也確認第七次並行開房請求會在提交前一筆後被限量 trigger 拒絕；配對票券限量尚未做獨立多連線競態驗證。這些檢查不等同 Supabase Auth、Realtime 或 RLS 驗證。自助刪除 Edge Function 已通過 Deno 型別、lint、格式檢查及 7 個本機 request 子測試。函式尚未部署，且尚未建立 Supabase 專案，線上 Auth、Realtime、清理排程和 Supabase 環境 RLS 仍未驗證。
+- **後端：** 本機 PGlite 預檢會自動依檔名排序並套用 `supabase/migrations/` 中所有 SQL migration；10 項可重複執行的回歸測試涵蓋 migration 權限、雙人揭曉與歷史、隨機配對相容／封鎖／取消、封鎖與配對／邀請加入共用交易鎖、歷史游標分頁與共同點排名門檻、本人歷史讀取與刪除權限、security-definer 函式固定空 `search_path` 且不能由匿名角色執行、24／90／180 天資料清理、配對／開房限量、檢舉，以及刪除帳號時關閉房間、移除本人歷史並匿名化對手歷史和檢舉帳號連結。run 50 的 PostgreSQL 16 多連線測試驗證封鎖交易與配對／邀請加入的先後，也確認同帳號第七次開房及第十三張配對票券會在提交前一筆後被限量 trigger 拒絕；這些檢查不等同 Supabase Auth、Realtime 或 RLS 驗證。自助刪除 Edge Function 已通過 Deno 型別、lint、格式檢查及 7 個本機 request 子測試。函式尚未部署，且尚未建立 Supabase 專案，線上 Auth、Realtime、清理排程和 Supabase 環境 RLS 仍未驗證。
 - **資料政策：** 真人房間、配對票券及原始答案最多保留 24 小時；個人歷史摘要保存 90 天且可逐筆刪除；檢舉資料保存 180 天；封鎖關係保留至解除或刪除帳號。這些是目前採用的 MVP 預設，尚未部署或在 Supabase 驗證。
 - **登入與社群：** 已加入可選的 Supabase Auth 前端入口，包含匿名登入、Google／Facebook／X OAuth、Instagram／Threads custom provider 設定、PKCE session 恢復及匿名帳號 identity linking。Chrome mock client 已驗證登入狀態和 provider 呼叫；尚無 Supabase URL／anon key，登入按鈕目前停用，live login／callback／帳號 linking 仍未設定或驗證。平台限制見 [knowledge/decision.md](decision.md)。
 - **前端設計：** 已完成第一輪整體字級、留白、按鈕及主題選項版面整理；房間、真人答題、隨機配對等待及歷史頁已接上 RPC，無設定時仍保留清楚標示的操作預覽。Chrome mock 驗證流程分支；六種寬度與鍵盤流程的前一輪檢查已通過。真人服務環境的實際網路狀態仍待驗證。
-- **發布：** 公開網站最近一次成功部署為 run 46；run 48 的 verify 和 block_race 均成功，但 deploy 因找不到 `github-pages` artifact 失敗。這次程式碼修改只新增競態測試，未變更網站內容；真人登入和後端尚未設定，仍維持停用狀態。詳見 [run 48](https://github.com/310182-sketch/riddle-match/actions/runs/44621570200) 和 [公開網站](https://310182-sketch.github.io/riddle-match/)。
+- **發布：** run 50 的 verify、block_race 和 deploy 全部成功，公開網站已部署；run 48 曾遇到 `github-pages` artifact 讀取失敗，後續 run 49、50 均成功。真人登入和後端尚未設定，仍維持停用狀態。詳見 [run 50](https://github.com/310182-sketch/riddle-match/actions/runs/44622816525) 和 [公開網站](https://310182-sketch.github.io/riddle-match/)。
 - **安全營運：** 前端及後端草稿已提供同房檢舉、封鎖與解除封鎖、服務端配對／開房限量及隱私告知。此原型沒有人工審查人員或支援聯絡方式；正式公開前須建立案件審查、聯絡和緊急處理流程，不能宣稱檢舉會即時有人處理。
 - **工作區：** 原型位於 `site/`，可直接開啟 `site/index.html` 操作，不需安裝套件或建置。
 - **產品方向：** 遠端 `main` 保留原有猜謎版本；本分支依本計畫製作二選一共同點遊戲，詳見 [knowledge/decision.md](decision.md)。
@@ -119,10 +119,10 @@
 - [x] 建立 10 項可重複執行的 Deno／PGlite migration 回歸測試；自動讀取並依檔名排序套用所有 SQL migration，檢查資料表權限、security-definer 函式固定空 `search_path` 且匿名角色不能執行、雙人揭曉和歷史、隨機配對主題相容／封鎖排除／取消、封鎖和配對／邀請加入共用鎖、歷史游標分頁和三局排名門檻、本人歷史讀取／刪除權限、24／90／180 天資料清理、配對與開房限量、檢舉及封鎖、刪除帳號後本人歷史清除與對手歷史匿名化。
 - [x] 在一次性 PostgreSQL 16 資料庫加入多連線整合測試，重現封鎖交易和隨機配對、邀請加入的交錯，確認兩種請求都等待共用 advisory lock，並在封鎖提交後分別不配對和拒絕加入；run 45 的 GitHub Actions `block_race` job 通過。測試僅允許連接 loopback 主機。
 - [x] 在 PostgreSQL 16 多連線整合測試驗證同一帳號接近邀請房上限時並行呼叫 `create_invite_room`，確認交易鎖會序列化計數並拒絕第七間房；run 48 的 `block_race` job 通過。
-- [ ] 在 PostgreSQL 16 多連線整合測試驗證同一帳號接近配對票券上限時並行呼叫 `queue_for_match`，確認不會因交易競態建立超過每 10 分鐘 12 張的票券。
+- [x] 在 PostgreSQL 16 多連線整合測試驗證同一帳號接近配對票券上限時並行呼叫 `queue_for_match`，確認不會因交易競態建立超過每 10 分鐘 12 張的票券；run 50 的 `block_race` job 通過。
 - [x] 以新增 migration 修正帳號刪除時檢舉只解除已刪除一方關聯的缺口；只要案件任一涉事玩家刪除帳號，就保留 180 天案件內容並同時清除兩方 ID。
 - [x] 將 Deno／PGlite migration 與 Edge Function 回歸測試接入 Pages workflow，驗證完成後才部署，並將 `pages: write`／`id-token: write` 權限限制在部署 job；run 41 已在 GitHub runner 完成驗證及部署。
-- [x] 將 PostgreSQL 16 多連線競態測試加入獨立 CI job，並要求它和既有 verify job 都成功後才部署；run 48 的 verify 與 `block_race` 均通過，Pages deploy 的 artifact 錯誤已記錄於發布狀態。
+- [x] 將 PostgreSQL 16 多連線競態測試加入獨立 CI job，並要求它和既有 verify job 都成功後才部署；run 50 的 verify、`block_race` 與 deploy 均通過。
 - [ ] 建立 Supabase 專案與開發／正式環境，啟用 Anonymous Auth，套用並實際驗證 migration。
 - [ ] 啟用 Supabase Manual Linking；設定本機與 GitHub Pages redirect allow list 及 Google／Facebook／X callback。
 - [ ] 完成 RLS、Realtime、RPC 權限和資料驗證；確保玩家只能查看有權存取的房間、答案與紀錄。
