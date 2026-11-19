@@ -151,6 +151,7 @@ h1 span { color: var(--green); }
 .option-copy { flex: 1; }
 .option-check { visibility: hidden; color: var(--green); font-size: 13px; }
 .is-selected .option-check { visibility: visible; }
+.remote-game-status { margin: 11px 0 0; border-left: 2px solid #b4c2a9; padding: 5px 9px; color: #62695c; background: #f6f7f2; font-size: 11px; line-height: 1.6; }
 .reveal-panel { margin-top: 16px; border: 1px solid #e2e9dc; border-radius: 9px; padding: 13px; background: #f5f7f2; animation: reveal-in .2s ease-out; }
 .reveal-title { display: flex; align-items: flex-start; gap: 8px; }
 .reveal-spark { color: #bd8d4d; font-size: 14px; }

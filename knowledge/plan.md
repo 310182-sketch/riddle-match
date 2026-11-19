@@ -10,13 +10,13 @@
 
 ## 目前狀態
 
-- **階段：** 互動原型與第一輪瀏覽器版可用性檢查已完成；Supabase 隨機配對、邀請房間及個人歷史 migration 草稿已建立。原型已有首頁、主題選擇、示範配對、五題作答、逐題揭曉及結果頁。
+- **階段：** 互動原型及第一輪瀏覽器版可用性檢查已完成；Supabase migration 草稿已建立。前端已接上邀請房的真人答題、雙方完成才揭曉、雙方確認才前進、完局結果，以及隨機配對佇列、取消、30 秒逾時和重新排隊；Chrome mock 流程已驗證。原型亦保留首頁、主題選擇、示範配對、五題作答和分享結果。
 - **已驗證：** Chrome headless 在 320、360、390、768、1024、1440px 檢查首頁、遊戲及結果頁，皆無水平溢出；以鍵盤在六種寬度完成五題流程。已改善選項字級、觸控尺寸、焦點提示及作答狀態語意。
-- **仍是模擬：** 對方答案來自瀏覽器範例資料。邀請房建立／加入和房主狀態查詢已接上 RPC 前端流程，並以 Chrome mock 驗證；缺少 Supabase 專案設定，尚不能建立線上房間。隨機配對及跨裝置答題同步仍未接上。歷史頁前端已接上查詢、分頁、默契排名及逐筆刪除 RPC，並以 Chrome mock 驗證；缺少 Supabase 設定，仍不能查詢真實對局。結果頁已可產生 1080×1920 PNG，支援系統分享面板及下載備援；尚未在 iOS／Android 實機確認 Instagram 交接。
+- **仍待線上驗證：** 工作區沒有 Supabase URL／公開 key，無法使用真實登入、房間或配對服務。邀請房答題與隨機配對前端已接上 RPC，並以 Chrome mock 驗證成功揭曉、雙方確認、結果讀取、配對成功、逾時重試及取消；尚未在 Supabase Realtime 或兩部裝置驗證。歷史頁查詢、分頁、默契排名及逐筆刪除 RPC 也已用 Chrome mock 驗證，但不能查詢真實對局。結果頁已能產生 1080×1920 PNG，支援系統分享面板及下載備援；尚未在 iOS／Android 實機確認 Instagram 交接。
 - **後端：** 兩份 migration 已在本機 PGlite 預檢環境成功套用，並 smoke test 邀請房、五題雙人作答／揭曉、歷史、排名、隨機配對及資料存取限制。尚未建立 Supabase 專案；線上 Auth、Realtime、排程和 Supabase 環境 RLS 仍未驗證。
 - **資料政策：** 真人對局房間及原始答案保留到結束後 24 小時，另存玩家各自可查詢、可刪除的對局摘要 90 天；統計只計最近 90 天。這是目前採用的 MVP 預設，migration 擴充草稿已完成，尚未套用或部署驗證。
 - **登入與社群：** 已加入可選的 Supabase Auth 前端入口，包含匿名登入、Google／Facebook／X OAuth、Instagram／Threads custom provider 設定、PKCE session 恢復及匿名帳號 identity linking。Chrome mock client 已驗證登入狀態和 provider 呼叫；尚無 Supabase URL／anon key，登入按鈕目前停用，live login／callback／帳號 linking 仍未設定或驗證。平台限制見 [knowledge/decision.md](decision.md)。
-- **前端設計：** 已完成第一輪整體字級、留白、按鈕及主題選項版面整理，並加入房間、配對等待和歷史空狀態的操作預覽；已重跑六種寬度的三個主要頁面及五題鍵盤流程。真實成功／逾時狀態與後端資料仍待串接。
+- **前端設計：** 已完成第一輪整體字級、留白、按鈕及主題選項版面整理；房間、真人答題、隨機配對等待及歷史頁已接上 RPC，無設定時仍保留清楚標示的操作預覽。Chrome mock 驗證流程分支；六種寬度與鍵盤流程的前一輪檢查已通過。真人服務環境的實際網路狀態仍待驗證。
 - **發布：** 功能分支的 Pages workflow 已推送並觸發，但 GitHub 因 github-pages 環境保護規則禁止此分支部署。需確認是否將此分支加入允許清單，再重新部署。
 - **工作區：** 原型位於 `site/`，可直接開啟 `site/index.html` 操作，不需安裝套件或建置。
 - **產品方向：** 遠端 `main` 保留原有猜謎版本；本分支依本計畫製作二選一共同點遊戲，詳見 [knowledge/decision.md](decision.md)。
@@ -84,7 +84,7 @@
 - [x] 加入建立邀請房、複製示範代碼及輸入房間代碼的前端預覽；畫面清楚說明尚未建立跨裝置房間。
 - [x] 在已登入且已設定 Supabase 時接上 `create_invite_room`、`join_invite_room` RPC；保留無設定時的明確示範模式，顯示服務回傳的代碼與加入狀態。
 - [x] 房主以 `get_invite_room_status` 輪詢對方加入及失效狀態；使用者離房時呼叫 `leave_room`，Chrome mock 驗證建立、加入、配對、離房與逾期流程。
-- [x] 加入隨機配對等待／取消及轉入示範對局的畫面；實際配對、成功狀態與 30 秒逾時仍待後端串接。
+- [x] 加入隨機配對等待、取消及逾時狀態；接上 `queue_for_match`、`get_match_status`、`cancel_matchmaking`，處理 30 秒逾時、重新排隊及配對後進入真人房間，Chrome mock 驗證成功、逾時與取消分支。
 - [x] 設計歷史紀錄與共同點統計頁的空狀態，說明 90 天範圍、三局門檻和本人可見規則。
 - [x] 將歷史頁接上本人最近 90 天的對局清單、共同選擇、50 筆游標分頁、默契排名及逐筆刪除 RPC。
 - [x] 以 Chrome mock RPC 驗證載入、空清單、錯誤重試、分頁、刪除後刷新、登出清除資料、切換帳號時丟棄舊請求，以及動態文字不會被解讀為 HTML。
@@ -106,10 +106,10 @@
 - [ ] 依 Meta 的帳號資格及 app review 狀態加入 Instagram、Threads custom OAuth，確認 provider 身分能連結到原匿名玩家。
 - [ ] 使用實際 Supabase 專案設定驗證登入／登出、OAuth callback、頁面重載後的 session 恢復及匿名帳號 linking。
 - [x] 將邀請房建立、代碼加入、房主狀態查詢及離房接上 authenticated RPC；目前只在 Chrome mock 驗證，尚無線上 Supabase 設定。
-- [ ] 加入遊戲房間後以 `get_room_state` 恢復題目，訂閱 Realtime 房間更新並保留輪詢備援。
-- [ ] 以 `submit_answer` 送出答案，只在伺服器確認雙方都回答後顯示答案；以 `continue_room` 等待雙方確認並推進題目，結束後讀取 `get_room_results`。
-- [ ] 將隨機配對接上 `queue_for_match`、`get_match_status` 與 `cancel_matchmaking`，處理 30 秒逾時及重新排隊。
-- [ ] 完成遠端遊戲與配對錯誤處理：重複送出、房間逾時、離線、中途離開、重連、取消佇列及歷史寫入。
+- [x] 加入遊戲房間後以 `get_room_state` 還原題目，訂閱 `game_rooms` Realtime 更新並保留輪詢備援；Realtime 事件只觸發重新查詢，不傳送答案。
+- [x] 以 `submit_answer` 送出答案，只在伺服器確認雙方都回答後顯示答案；以 `continue_room` 等待雙方確認並推進題目，結束後讀取 `get_room_results`。Chrome mock 驗證五題作答、答案揭曉、確認等待和完局結果。
+- [x] 將隨機配對接上 `queue_for_match`、`get_match_status` 與 `cancel_matchmaking`，處理 30 秒逾時及重新排隊；Chrome mock 驗證配對成功、逾時重試和取消。
+- [x] 加入遠端遊戲與配對前端錯誤處理：重複送出防護、房間逾時、離線後重試、中途離開、重新載入後透過房間 RPC 恢復、取消佇列及完局歷史寫入 migration。真人服務的 RLS、網路中斷和跨裝置行為仍待 Supabase 環境驗證。
 - [x] 建立已完成對局的持久紀錄與受權限保護的歷史查詢 RPC 草稿，按定案的保存政策清除或匿名化資料。
 - [x] 建立玩家共同點彙總 RPC 草稿，依共同答案比例排序並回傳對局數、共同答案數和比例。
 - [ ] 使用 Supabase 真實使用者資料驗證歷史分頁游標、90 天保留、逐筆刪除、排名門檻及只允許本人查詢的權限。

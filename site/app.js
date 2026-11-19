@@ -40,6 +40,11 @@
     questionIndex: 0,
     answers: [],
     matchTimer: null,
+    matchmakingOperationId: 0,
+    matchmaking: null,
+    matchmakingPollTimer: null,
+    matchmakingDeadlineTimer: null,
+    matchmakingBusy: false,
     shareFile: null,
     shareCardVersion: 0,
     historyItems: [],
@@ -51,7 +56,19 @@
     roomOperationId: 0,
     roomPollId: 0,
     roomStatusTimer: null,
-    roomBusy: false
+    roomBusy: false,
+    gameSyncId: 0,
+    gamePollTimer: null,
+    gameChannel: null,
+    gameRefreshBusy: false,
+    gameRefreshQueued: false,
+    gameRefreshSyncId: null,
+    gameQuestions: null,
+    gameQuestionNo: 0,
+    gameChoice: null,
+    gameBusy: false,
+    gameResultLoading: false,
+    gameResultSyncId: null
   };
 
   const authState = {
@@ -96,9 +113,19 @@
   }
 
   function startMatching(mode = "demo") {
+    if (mode === "random" && authState.client && !authState.session?.user?.id) {
+      announce("請先登入，再加入真人隨機配對。可先使用本機示範。");
+      return;
+    }
     window.clearTimeout(state.matchTimer);
+    stopMatchmakingWatch();
+    state.matchmaking = null;
     state.shareCardVersion += 1;
     state.shareFile = null;
+    stopLiveGameSync();
+    state.liveRoom = null;
+    state.gameQuestions = null;
+    state.gameChoice = null;
     state.matchMode = mode;
     state.questionIndex = 0;
     state.answers = [];
@@ -106,25 +133,248 @@
     chooseTopic();
     $("[data-match-topic]").textContent = state.topic;
     const demoMode = mode === "demo";
+    const liveQueue = mode === "random" && Boolean(authState.client && authState.session?.user?.id);
+    $("[data-opponent-name]").textContent = "小島";
+    $("[data-opponent-avatar]").textContent = "島";
+    $("[data-opponent-mode]").textContent = "示範玩家";
+    $("[data-demo-disclaimer]").classList.remove("hidden");
     $("[data-match-title]").innerHTML = demoMode
       ? "一個好問題，<br><span>從一位新朋友開始。</span>"
       : "等待一位玩家，<br><span>一起探索共同點。</span>";
-    $("[data-match-caption]").textContent = demoMode
-      ? "正在準備本機範例對局…"
-      : "真人配對服務尚未連線，現在不會進入真實佇列。";
+    $("[data-match-eyebrow]").textContent = liveQueue ? "真人隨機配對" : "配對流程預覽";
+    $("[data-match-caption]").textContent = liveQueue
+      ? "正在安全佇列中尋找主題相近的玩家…"
+      : demoMode
+        ? "正在準備本機範例對局…"
+        : "真人配對服務尚未連線，現在不會進入真實佇列。";
     $("[data-match-note]").textContent = demoMode
       ? "這場示範會使用本機範例玩家與答案。"
-      : "此為配對等待畫面預覽；加入 30 秒等候上限及跨裝置配對後才會啟用。";
-    $("[data-match-progress]").classList.toggle("is-preview", !demoMode);
+      : liveQueue
+        ? "配對成功後會直接進入真人對局；雙方可在 30 秒內取消或等待配對。"
+        : "此為配對等待畫面預覽；登入並接上服務後才會進入真實佇列。";
+    $("[data-match-timeout-note]").textContent = liveQueue
+      ? "等候上限 30 秒；逾時後可重新加入配對。"
+      : "真人配對等候上限為 30 秒，登入並接上服務後啟用。";
+    $("[data-match-progress]").classList.toggle("is-preview", !liveQueue && !demoMode);
     $("[data-use-demo]").classList.toggle("hidden", demoMode);
+    $("[data-retry-match]").classList.add("hidden");
+    $("[data-cancel]").disabled = liveQueue;
+    $("[data-cancel]").textContent = liveQueue ? "正在連接配對佇列…" : "返回首頁";
     showView("matching", true);
     if (demoMode) state.matchTimer = window.setTimeout(startDemoGame, 900);
+    if (liveQueue) queueRandomMatch();
   }
 
   function startDemoGame() {
     window.clearTimeout(state.matchTimer);
     renderQuestion();
     showView("game", true);
+  }
+
+  function stopMatchmakingWatch() {
+    window.clearTimeout(state.matchmakingPollTimer);
+    window.clearTimeout(state.matchmakingDeadlineTimer);
+    state.matchmakingPollTimer = null;
+    state.matchmakingDeadlineTimer = null;
+    state.matchmakingOperationId += 1;
+    state.matchmakingBusy = false;
+  }
+
+  function matchingIsCurrent(attempt) {
+    return Boolean(
+      state.matchmaking === attempt &&
+      state.matchmakingOperationId === attempt.operationId &&
+      authState.session?.user?.id === attempt.userId
+    );
+  }
+
+  function showMatchmakingRetry(message, title = "沒有找到配對") {
+    stopMatchmakingWatch();
+    state.matchmaking = null;
+    $("[data-match-title]").textContent = title;
+    $("[data-match-caption]").textContent = message;
+    $("[data-match-note]").textContent = "可以重新加入佇列，或返回首頁選擇其他玩法。";
+    $("[data-match-eyebrow]").textContent = "配對狀態";
+    $("[data-match-progress]").classList.add("is-preview");
+    $("[data-use-demo]").classList.add("hidden");
+    $("[data-retry-match]").classList.remove("hidden");
+    $("[data-cancel]").disabled = false;
+    $("[data-cancel]").textContent = "返回首頁";
+  }
+
+  function routeToMatchedRoom(data, userId) {
+    const status = data?.status;
+    if (!["matched", "active_room"].includes(status) || !data.room_id) return false;
+    stopMatchmakingWatch();
+    state.matchmaking = null;
+    state.matchmakingBusy = false;
+    if (status === "matched") {
+      const room = {
+        roomId: data.room_id,
+        inviteCode: null,
+        topicKey: data.topic_key,
+        status: "playing",
+        expiresAt: data.expires_at,
+        opponentNickname: data.opponent_nickname,
+        createdBy: false,
+        userId
+      };
+      enterLiveRoomGame(room);
+    } else {
+      const inviteCode = data.invite_code || null;
+      showLiveInviteRoom({
+        roomId: data.room_id,
+        inviteCode,
+        topicKey: data.topic_key,
+        status: inviteCode ? "waiting" : "active_room",
+        expiresAt: data.expires_at,
+        opponentNickname: data.opponent_nickname || null,
+        createdBy: Boolean(inviteCode),
+        userId
+      });
+    }
+    return true;
+  }
+
+  function startMatchStatusPoll(attempt, delay = 1700) {
+    window.clearTimeout(state.matchmakingPollTimer);
+    state.matchmakingPollTimer = window.setTimeout(() => pollMatchStatus(attempt), delay);
+  }
+
+  function startMatchDeadline(attempt) {
+    window.clearTimeout(state.matchmakingDeadlineTimer);
+    const remaining = Math.max(0, attempt.expiresAt - Date.now());
+    state.matchmakingDeadlineTimer = window.setTimeout(() => pollMatchStatus(attempt), remaining);
+  }
+
+  async function handleMatchStatus(attempt, data) {
+    if (!matchingIsCurrent(attempt)) return;
+    if (routeToMatchedRoom(data, attempt.userId)) return;
+    if (data?.status === "waiting") {
+      if (!data.ticket_id) throw new Error("Waiting match response did not include a ticket id");
+      attempt.ticketId = data.ticket_id;
+      if (data.expires_at) {
+        const expiry = Date.parse(data.expires_at);
+        if (Number.isFinite(expiry)) attempt.expiresAt = expiry;
+      }
+      if (attempt.expiresAt <= Date.now()) {
+        $("[data-match-caption]").textContent = "正在確認 30 秒配對期限…";
+      } else {
+        const seconds = Math.max(1, Math.ceil((attempt.expiresAt - Date.now()) / 1000));
+        $("[data-match-caption]").textContent = `正在等待玩家加入佇列，約還有 ${seconds} 秒…`;
+      }
+      $("[data-cancel]").disabled = false;
+      $("[data-cancel]").textContent = "取消配對";
+      startMatchStatusPoll(attempt);
+      startMatchDeadline(attempt);
+      return;
+    }
+    if (data?.status === "timed_out") {
+      showMatchmakingRetry("已等候 30 秒，這次沒有找到合適的玩家。", "配對逾時");
+      return;
+    }
+    if (data?.status === "cancelled") {
+      stopMatchmakingWatch();
+      state.matchmaking = null;
+      showView("home", true);
+      announce("已取消隨機配對。");
+      return;
+    }
+    throw new Error("Unexpected matchmaking response");
+  }
+
+  async function pollMatchStatus(attempt) {
+    if (!matchingIsCurrent(attempt) || !attempt.ticketId) return;
+    if (state.matchmakingBusy) {
+      startMatchStatusPoll(attempt, 500);
+      return;
+    }
+    state.matchmakingBusy = true;
+    try {
+      const { data, error } = await authState.client.rpc("get_match_status", {
+        p_ticket_id: attempt.ticketId
+      });
+      if (!matchingIsCurrent(attempt)) return;
+      if (error) throw error;
+      await handleMatchStatus(attempt, data || {});
+    } catch (error) {
+      if (matchingIsCurrent(attempt)) {
+        console.warn("Could not refresh matchmaking status", error);
+        $("[data-match-caption]").textContent = "暫時無法更新配對狀態，正在重試…";
+        startMatchStatusPoll(attempt, 3000);
+      }
+    } finally {
+      if (matchingIsCurrent(attempt)) state.matchmakingBusy = false;
+    }
+  }
+
+  async function queueRandomMatch() {
+    if (!authState.client || !authState.session?.user?.id) return;
+    const userId = authState.session.user.id;
+    const attempt = {
+      operationId: ++state.matchmakingOperationId,
+      userId,
+      ticketId: null,
+      expiresAt: Date.now() + 30000
+    };
+    state.matchmaking = attempt;
+    state.matchmakingBusy = true;
+    try {
+      const { data, error } = await authState.client.rpc("queue_for_match", {
+        p_topic_choice: topicChoiceKeys[state.topicChoice] || "random",
+        p_nickname: state.nickname
+      });
+      if (!matchingIsCurrent(attempt)) return;
+      if (error) throw error;
+      await handleMatchStatus(attempt, data || {});
+    } catch (error) {
+      if (matchingIsCurrent(attempt)) {
+        console.warn("Could not start matchmaking", error);
+        showMatchmakingRetry("無法連線到配對服務，請確認登入及 Supabase 設定後重試。", "配對服務暫時無法使用");
+      }
+    } finally {
+      if (matchingIsCurrent(attempt)) state.matchmakingBusy = false;
+    }
+  }
+
+  async function cancelMatchmaking() {
+    const attempt = state.matchmaking;
+    if (!attempt) {
+      window.clearTimeout(state.matchTimer);
+      showView("home", true);
+      return;
+    }
+    if (!attempt.ticketId || state.matchmakingBusy) return;
+    state.matchmakingBusy = true;
+    $("[data-cancel]").disabled = true;
+    $("[data-cancel]").textContent = "正在取消…";
+    try {
+      const { data, error } = await authState.client.rpc("cancel_matchmaking", {
+        p_ticket_id: attempt.ticketId
+      });
+      if (!matchingIsCurrent(attempt)) return;
+      if (error) throw error;
+      if (data?.status === "matched") {
+        if (!routeToMatchedRoom(data, attempt.userId)) {
+          $("[data-match-caption]").textContent = "已配對，正在連接房間…";
+          startMatchStatusPoll(attempt, 0);
+        }
+        return;
+      }
+      stopMatchmakingWatch();
+      state.matchmaking = null;
+      showView("home", true);
+      announce(data?.status === "cancelled" ? "已取消隨機配對。" : "配對等待已結束。");
+    } catch (error) {
+      if (matchingIsCurrent(attempt)) {
+        console.warn("Could not cancel matchmaking", error);
+        $("[data-match-caption]").textContent = "取消沒有完成，請稍後重試或等待 30 秒逾時。";
+        $("[data-cancel]").disabled = false;
+        $("[data-cancel]").textContent = "重試取消";
+      }
+    } finally {
+      if (matchingIsCurrent(attempt)) state.matchmakingBusy = false;
+    }
   }
 
   function createDemoInviteCode() {
@@ -140,6 +390,23 @@
     window.clearTimeout(state.roomStatusTimer);
     state.roomStatusTimer = null;
     state.roomPollId += 1;
+  }
+
+  function stopLiveGameSync() {
+    window.clearTimeout(state.gamePollTimer);
+    state.gamePollTimer = null;
+    state.gameSyncId += 1;
+    state.gameRefreshBusy = false;
+    state.gameRefreshQueued = false;
+    state.gameRefreshSyncId = null;
+    state.gameBusy = false;
+    state.gameResultLoading = false;
+    state.gameResultSyncId = null;
+    const channel = state.gameChannel;
+    state.gameChannel = null;
+    if (channel && authState.client) {
+      authState.client.removeChannel(channel).catch(() => {});
+    }
   }
 
   function getPlayerNickname() {
@@ -176,10 +443,10 @@
       $("[data-room-note]").textContent = "這是已建立的真人房間；朋友加入後會在此顯示狀態。";
     } else if (room.status === "joined") {
       $("[data-room-status]").textContent = `已加入 ${room.opponentNickname || "朋友"} 的房間。`;
-      $("[data-room-note]").textContent = "房間已連線；真人雙人答題畫面仍待串接完成。";
+      $("[data-room-note]").textContent = "房間已連線，正在載入第一題。";
     } else if (room.status === "playing") {
       $("[data-room-status]").textContent = "朋友已加入，真人房間已配對。";
-      $("[data-room-note]").textContent = "真人雙人答題畫面仍待串接完成；離開此頁會關閉房間。";
+      $("[data-room-note]").textContent = "真人對局已開始；離開此頁會關閉房間。";
     } else if (room.status === "expired") {
       $("[data-room-status]").textContent = "房間已逾期並關閉。";
       $("[data-room-note]").textContent = "邀請房等待 10 分鐘後會失效，請返回首頁重新建立。";
@@ -225,6 +492,11 @@
         if (pollId !== state.roomPollId || authState.session?.user?.id !== userId) return;
         if (error) throw error;
         updateLiveRoomScreen(data || {});
+        if (data?.status === "playing" && state.liveRoom?.roomId === roomId) {
+          stopRoomStatusWatch();
+          enterLiveRoomGame(state.liveRoom);
+          return;
+        }
         if (data?.status === "waiting") {
           scheduleRoomStatusCheck(roomId, pollId, userId);
         }
@@ -240,6 +512,10 @@
   function showLiveInviteRoom(room) {
     stopRoomStatusWatch();
     state.liveRoom = room;
+    if (["joined", "playing", "active_room"].includes(room.status) && !room.inviteCode) {
+      enterLiveRoomGame(room);
+      return;
+    }
     $("[data-room-title]").textContent = room.status === "active_room"
       ? "進行中的房間"
       : room.createdBy
@@ -251,6 +527,330 @@
     if (room.status === "waiting" && room.createdBy && room.inviteCode) {
       const pollId = ++state.roomPollId;
       scheduleRoomStatusCheck(room.roomId, pollId, room.userId, 1500);
+    }
+  }
+
+  function remoteGameIsCurrent(roomId, syncId, userId) {
+    return Boolean(
+      state.liveRoom?.roomId === roomId &&
+      state.gameSyncId === syncId &&
+      authState.session?.user?.id === userId
+    );
+  }
+
+  function scheduleLiveGameRefresh(roomId, syncId, userId, delay = 3500) {
+    window.clearTimeout(state.gamePollTimer);
+    state.gamePollTimer = window.setTimeout(() => {
+      refreshLiveGame(roomId, syncId, userId);
+    }, delay);
+  }
+
+  function showRemoteGameStatus(message) {
+    const status = $("[data-remote-status]");
+    status.textContent = message;
+    status.classList.toggle("hidden", !message);
+  }
+
+  function showRoomEnded(status) {
+    if (!state.liveRoom) return;
+    state.liveRoom.status = status;
+    stopLiveGameSync();
+    updateLiveRoomScreen({ status });
+    showView("invite-room", true);
+  }
+
+  function renderLiveGameState(roomState) {
+    const questionNo = Number(roomState.current_question);
+    if (!Number.isInteger(questionNo) || questionNo < 1 || questionNo > 5) return;
+    const index = questionNo - 1;
+    state.topic = topicLabels[roomState.topic_key] || state.topic;
+    state.nickname = roomState.you?.nickname || state.nickname;
+    state.liveRoom.opponentNickname = roomState.partner?.nickname || state.liveRoom.opponentNickname || "朋友";
+    state.gameQuestions[index] = {
+      prompt: roomState.question?.prompt || "題目載入中…",
+      choices: [roomState.question?.choice_a || "選項 A", roomState.question?.choice_b || "選項 B"]
+    };
+    if (state.gameQuestionNo !== questionNo) {
+      state.gameQuestionNo = questionNo;
+      state.questionIndex = index;
+      state.gameChoice = null;
+      renderQuestion();
+    }
+
+    $("[data-opponent-name]").textContent = state.liveRoom.opponentNickname;
+    $("[data-opponent-avatar]").textContent = state.liveRoom.opponentNickname.slice(0, 1);
+    $("[data-opponent-mode]").textContent = "真人玩家";
+    $("[data-demo-disclaimer]").classList.add("hidden");
+    $("[data-peer-answer-label]").textContent = `${state.liveRoom.opponentNickname}・真人`;
+    $("[data-player-answer-label]").textContent = `${state.nickname}・你`;
+    $("[data-match-label]").textContent = "本機已揭曉相同";
+
+    const revealed = roomState.reveal === true && [0, 1].includes(Number(roomState.your_choice)) &&
+      [0, 1].includes(Number(roomState.partner_choice));
+    if (revealed) {
+      const ownChoice = Number(roomState.your_choice);
+      const partnerChoice = Number(roomState.partner_choice);
+      state.gameChoice = ownChoice;
+      state.answers[index] = { player: ownChoice, opponent: partnerChoice };
+      const question = currentGameQuestions()[index];
+      $$(".answer-option").forEach((button, optionIndex) => {
+        button.disabled = true;
+        button.classList.toggle("is-selected", optionIndex === ownChoice);
+        button.setAttribute("aria-pressed", String(optionIndex === ownChoice));
+      });
+      const matched = ownChoice === partnerChoice;
+      $("[data-reveal-heading]").textContent = matched
+        ? "你們找到一個共同點了"
+        : "選擇不一樣，也多認識一點彼此";
+      $("[data-reveal-copy]").textContent = matched
+        ? `你們都選了「${question.choices[ownChoice]}」。`
+        : "每個人的偏好都不同，這也是認識新觀點的開始。";
+      $("[data-player-answer]").textContent = question.choices[ownChoice];
+      $("[data-peer-answer]").textContent = question.choices[partnerChoice];
+      $("[data-next-label]").textContent = questionNo === 5 ? "看這局結果" : "下一題";
+      $("[data-next]").disabled = roomState.your_ready === true || state.gameBusy;
+      $("[data-reveal]").classList.remove("hidden");
+      showRemoteGameStatus(roomState.your_ready === true
+        ? "你已準備好，等朋友也按下「下一題」即可繼續。"
+        : "雙方都已作答，答案已揭曉。看完後一起前往下一題。");
+    } else {
+      $("[data-reveal]").classList.add("hidden");
+      $("[data-next]").disabled = true;
+      $$(".answer-option").forEach((button, optionIndex) => {
+        const selected = state.gameChoice === optionIndex;
+        button.disabled = roomState.you?.answered === true || state.gameBusy;
+        button.classList.toggle("is-selected", selected);
+        button.setAttribute("aria-pressed", String(selected));
+      });
+      if (roomState.you?.answered === true) {
+        showRemoteGameStatus("你的答案已送出，等待朋友完成作答…");
+      } else if (roomState.partner?.answered === true) {
+        showRemoteGameStatus("朋友已完成作答，選擇你的答案就會一起揭曉。");
+      } else {
+        showRemoteGameStatus(state.gameBusy ? "正在送出答案…" : "選好答案後，等朋友也完成作答即可揭曉。");
+      }
+    }
+    updateProgress();
+  }
+
+  async function loadLiveRoomResults(roomId, syncId, userId) {
+    if (!remoteGameIsCurrent(roomId, syncId, userId) ||
+        (state.gameResultLoading && state.gameResultSyncId === syncId)) return false;
+    state.gameResultLoading = true;
+    state.gameResultSyncId = syncId;
+    try {
+      const { data, error } = await authState.client.rpc("get_room_results", { p_room_id: roomId });
+      if (!remoteGameIsCurrent(roomId, syncId, userId)) return false;
+      if (error) throw error;
+      if (!data || !Array.isArray(data.common_choices)) throw new Error("Unexpected room results response");
+      const questions = Array.from({ length: 5 }, (_, index) =>
+        state.gameQuestions[index] || { prompt: "", choices: ["", ""] }
+      );
+      const answers = Array(5).fill(null);
+      data.common_choices.forEach((item) => {
+        const index = Number(item.question_no) - 1;
+        if (index < 0 || index > 4 || typeof item.choice !== "string") return;
+        questions[index] = { prompt: item.prompt || questions[index].prompt, choices: [item.choice, item.choice] };
+        answers[index] = { player: 0, opponent: 0 };
+      });
+      state.gameQuestions = questions;
+      state.answers = answers;
+      state.topic = topicLabels[data.topic_key] || state.topic;
+      state.matchMode = "live_completed";
+      stopLiveGameSync();
+      state.liveRoom = null;
+      renderResults();
+      return true;
+    } catch (error) {
+      if (remoteGameIsCurrent(roomId, syncId, userId)) {
+        console.warn("Could not load live room results", error);
+        showRemoteGameStatus("對局已結束，但結果暫時無法載入；正在重試…");
+      }
+      return false;
+    } finally {
+      if (state.gameResultSyncId === syncId) {
+        state.gameResultLoading = false;
+        state.gameResultSyncId = null;
+      }
+    }
+  }
+
+  async function refreshLiveGame(roomId, syncId, userId) {
+    if (!remoteGameIsCurrent(roomId, syncId, userId)) return;
+    if (state.gameRefreshBusy) {
+      if (state.gameRefreshSyncId === syncId) state.gameRefreshQueued = true;
+      return;
+    }
+    state.gameRefreshBusy = true;
+    state.gameRefreshSyncId = syncId;
+    try {
+      const { data, error } = await authState.client.rpc("get_room_state", { p_room_id: roomId });
+      if (!remoteGameIsCurrent(roomId, syncId, userId)) return;
+      if (error) throw error;
+      if (data?.status === "completed") {
+        const loaded = await loadLiveRoomResults(roomId, syncId, userId);
+        if (loaded) return;
+      } else if (["expired", "abandoned"].includes(data?.status)) {
+        showRoomEnded(data.status);
+        return;
+      } else if (data?.status === "waiting") {
+        if (state.liveRoom.createdBy && !state.liveRoom.inviteCode) {
+          try {
+            const { data: invitation, error: invitationError } = await authState.client.rpc(
+              "get_invite_room_status",
+              { p_room_id: roomId }
+            );
+            if (remoteGameIsCurrent(roomId, syncId, userId) && !invitationError && invitation?.invite_code) {
+              state.liveRoom.inviteCode = invitation.invite_code;
+              state.liveRoom.expiresAt = invitation.expires_at;
+            }
+          } catch {}
+        }
+        stopLiveGameSync();
+        state.liveRoom.status = "waiting";
+        updateLiveRoomScreen(data);
+        showView("invite-room", true);
+        if (state.liveRoom.createdBy && state.liveRoom.inviteCode) {
+          const pollId = ++state.roomPollId;
+          scheduleRoomStatusCheck(roomId, pollId, userId);
+        }
+        return;
+      } else if (data?.status === "playing") {
+        state.liveRoom.status = "playing";
+        renderLiveGameState(data);
+      } else {
+        throw new Error("Unexpected room state response");
+      }
+    } catch (error) {
+      if (remoteGameIsCurrent(roomId, syncId, userId)) {
+        console.warn("Could not refresh live room state", error);
+        showRemoteGameStatus("連線暫時中斷，正在重新同步房間狀態…");
+      }
+    } finally {
+      if (state.gameRefreshSyncId === syncId) {
+        state.gameRefreshBusy = false;
+        state.gameRefreshSyncId = null;
+        if (remoteGameIsCurrent(roomId, syncId, userId)) {
+          if (state.gameRefreshQueued) {
+            state.gameRefreshQueued = false;
+            scheduleLiveGameRefresh(roomId, syncId, userId, 0);
+          } else {
+            scheduleLiveGameRefresh(roomId, syncId, userId);
+          }
+        }
+      }
+    }
+  }
+
+  function enterLiveRoomGame(room) {
+    if (!authState.client || !authState.session?.user?.id || room.userId !== authState.session.user.id) return;
+    if (state.liveRoom?.roomId === room.roomId && state.matchMode === "live" && state.gameChannel) {
+      refreshLiveGame(room.roomId, state.gameSyncId, room.userId);
+      return;
+    }
+    stopRoomStatusWatch();
+    stopLiveGameSync();
+    state.liveRoom = room;
+    state.matchMode = "live";
+    state.topic = topicLabels[room.topicKey] || state.topic;
+    state.questionIndex = 0;
+    state.gameQuestionNo = 0;
+    state.gameQuestions = Array(5).fill(null);
+    state.answers = [];
+    state.gameChoice = null;
+    state.gameBusy = false;
+    state.nickname = getPlayerNickname();
+    const syncId = state.gameSyncId;
+    const userId = room.userId;
+    showView("game", true);
+    showRemoteGameStatus("正在連接真人房間…");
+    $$(".answer-option").forEach((button) => { button.disabled = true; });
+    const channel = authState.client
+      .channel(`game-room-${room.roomId}`)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "game_rooms",
+        filter: `id=eq.${room.roomId}`
+      }, () => refreshLiveGame(room.roomId, syncId, userId))
+      .subscribe((status) => {
+        if (!remoteGameIsCurrent(room.roomId, syncId, userId)) return;
+        if (status === "SUBSCRIBED") {
+          refreshLiveGame(room.roomId, syncId, userId);
+        } else if (["CHANNEL_ERROR", "TIMED_OUT"].includes(status)) {
+          showRemoteGameStatus("即時更新暫時不可用，仍會定時重新同步房間狀態。");
+        }
+      });
+    state.gameChannel = channel;
+    refreshLiveGame(room.roomId, syncId, userId);
+  }
+
+  async function submitLiveAnswer(choice) {
+    const room = state.liveRoom;
+    if (!room || state.gameBusy || state.gameChoice !== null || !authState.client) return;
+    const syncId = state.gameSyncId;
+    const userId = room.userId;
+    if (!remoteGameIsCurrent(room.roomId, syncId, userId)) return;
+    state.gameChoice = choice;
+    state.gameBusy = true;
+    $$(".answer-option").forEach((button, index) => {
+      button.disabled = true;
+      button.classList.toggle("is-selected", index === choice);
+      button.setAttribute("aria-pressed", String(index === choice));
+    });
+    showRemoteGameStatus("正在送出答案…");
+    try {
+      const { error } = await authState.client.rpc("submit_answer", {
+        p_room_id: room.roomId,
+        p_choice: choice
+      });
+      if (!remoteGameIsCurrent(room.roomId, syncId, userId)) return;
+      if (error) throw error;
+    } catch (error) {
+      if (!remoteGameIsCurrent(room.roomId, syncId, userId)) return;
+      console.warn("Could not submit live answer", error);
+      state.gameChoice = null;
+      showRemoteGameStatus("答案沒有送出，正在確認房間狀態…");
+    } finally {
+      if (remoteGameIsCurrent(room.roomId, syncId, userId)) {
+        state.gameBusy = false;
+        await refreshLiveGame(room.roomId, syncId, userId);
+      }
+    }
+  }
+
+  async function continueLiveRoom() {
+    const room = state.liveRoom;
+    if (!room || state.gameBusy || !authState.client) return;
+    const syncId = state.gameSyncId;
+    const userId = room.userId;
+    if (!remoteGameIsCurrent(room.roomId, syncId, userId)) return;
+    state.gameBusy = true;
+    $("[data-next]").disabled = true;
+    showRemoteGameStatus("正在通知房間繼續…");
+    let shouldRefresh = false;
+    try {
+      const { data, error } = await authState.client.rpc("continue_room", { p_room_id: room.roomId });
+      if (!remoteGameIsCurrent(room.roomId, syncId, userId)) return;
+      if (error) throw error;
+      if (["completed", "advanced", "waiting_for_partner"].includes(data?.status)) {
+        shouldRefresh = true;
+      } else if (data?.status === "expired" || data?.status === "abandoned") {
+        showRoomEnded(data.status);
+      } else {
+        throw new Error("Unexpected continue room response");
+      }
+    } catch (error) {
+      if (remoteGameIsCurrent(room.roomId, syncId, userId)) {
+        console.warn("Could not continue live room", error);
+        showRemoteGameStatus("目前無法進入下一題，請稍後重試。");
+        $("[data-next]").disabled = false;
+      }
+    } finally {
+      if (remoteGameIsCurrent(room.roomId, syncId, userId)) {
+        state.gameBusy = false;
+        if (shouldRefresh) await refreshLiveGame(room.roomId, syncId, userId);
+      }
     }
   }
 
@@ -361,7 +961,7 @@
         status: data.status,
         expiresAt: data.expires_at,
         opponentNickname: data.opponent_nickname,
-        createdBy: false,
+        createdBy: data.status === "active_room",
         userId
       });
     } catch (error) {
@@ -388,6 +988,7 @@
     state.roomBusy = true;
     button.disabled = true;
     stopRoomStatusWatch();
+    stopLiveGameSync();
     try {
       const { error } = await authState.client.rpc("leave_room", { p_room_id: room.roomId });
       if (operationId !== state.roomOperationId || authState.session?.user?.id !== room.userId) return;
@@ -402,6 +1003,8 @@
       if (room.createdBy && room.status === "waiting") {
         const pollId = ++state.roomPollId;
         scheduleRoomStatusCheck(room.roomId, pollId, room.userId);
+      } else if (room.status === "playing") {
+        enterLiveRoomGame(room);
       }
     } finally {
       if (operationId === state.roomOperationId) {
@@ -433,15 +1036,22 @@
     progress.setAttribute("aria-valuenow", String(questionNumber));
     progress.setAttribute("aria-valuetext", "第 " + questionNumber + " 題，共 " + questionBank[state.topic].length + " 題");
 
-    const answered = state.answers.length;
-    const matches = state.answers.filter((answer) => answer.player === answer.opponent).length;
+    const knownAnswers = state.answers.filter(Boolean);
+    const answered = knownAnswers.length;
+    const matches = knownAnswers.filter((answer) => answer.player === answer.opponent).length;
     $("[data-answered-count]").textContent = String(answered);
     $("[data-match-count]").textContent = String(matches);
+    $("[data-match-label]").textContent = state.matchMode === "live" ? "本機已揭曉相同" : "目前相同";
+  }
+
+  function currentGameQuestions() {
+    return state.gameQuestions || questionBank[state.topic];
   }
 
   function renderQuestion() {
-    const question = questionBank[state.topic][state.questionIndex];
+    const question = currentGameQuestions()[state.questionIndex];
     $("[data-question]").textContent = question.prompt;
+    $("[data-next]").disabled = false;
     $$(".answer-option").forEach((button, index) => {
       button.disabled = false;
       button.classList.remove("is-selected");
@@ -449,11 +1059,12 @@
       $(".option-copy", button).textContent = question.choices[index];
     });
     $("[data-reveal]").classList.add("hidden");
+    $("[data-remote-status]").classList.add("hidden");
     updateProgress();
   }
 
   function revealAnswer(selectedIndex) {
-    const question = questionBank[state.topic][state.questionIndex];
+    const question = currentGameQuestions()[state.questionIndex];
     const answer = { player: selectedIndex, opponent: question.demoAnswer };
     state.answers[state.questionIndex] = answer;
     const matched = answer.player === answer.opponent;
@@ -470,6 +1081,7 @@
       : "每個人的偏好都不同，這也是認識新觀點的開始。";
     $("[data-player-answer]").textContent = question.choices[selectedIndex];
     $("[data-peer-answer]").textContent = question.choices[question.demoAnswer];
+    $("[data-peer-answer-label]").textContent = `${$("[data-opponent-name]").textContent}・示範`;
     $("[data-reveal]").classList.remove("hidden");
     $("[data-next-label]").textContent = state.questionIndex === questionBank[state.topic].length - 1 ? "看這局結果" : "下一題";
     updateProgress();
@@ -477,13 +1089,16 @@
   }
 
   function renderResults() {
-    const questions = questionBank[state.topic];
+    const questions = currentGameQuestions();
     const matchedIndexes = state.answers.reduce((indexes, answer, index) => {
       if (answer && answer.player === answer.opponent) indexes.push(index);
       return indexes;
     }, []);
     $("[data-result-score]").textContent = String(matchedIndexes.length);
     $("[data-result-topic]").textContent = state.topic;
+    $("[data-result-disclaimer]").textContent = state.matchMode === "live_completed"
+      ? "真人對局結果由伺服器確認；個人紀錄可在歷史頁查詢。"
+      : "本次配對與答案為原型示範，不會保存遊戲紀錄。";
     $("[data-result-copy]").textContent = matchedIndexes.length
       ? "這些相同的選擇，是認識彼此的一個小線索。"
       : "答案不一樣也很好，這是認識新觀點的開始。";
@@ -550,7 +1165,7 @@
     context.fillStyle = "#777d70";
     context.font = "500 22px 'DM Sans', sans-serif";
     context.textAlign = "right";
-    context.fillText("示範對局", 992, 126);
+    context.fillText(state.matchMode === "live_completed" ? "真人對局" : "示範對局", 992, 126);
 
     context.textAlign = "center";
     roundedRect(context, 421, 360, 238, 66, 33);
@@ -731,12 +1346,22 @@
       status = "登入服務設定無法使用。請確認 Supabase 專案網址和公開用戶端金鑰。";
     } else if (authState.client && user) {
       status = isAnonymousUser(user)
-        ? "已匿名登入。連結社群身分可保留此帳號；未連結前登出可能無法恢復。配對與紀錄仍是本機示範。"
-        : "已登入。此原型尚未連接真人配對和歷史服務，不會保存遊戲紀錄。";
+        ? "已匿名登入。可建立或加入真人邀請房，完成對局後查詢最近 90 天紀錄；連結社群身分可保留帳號。"
+        : "已登入。可建立或加入真人邀請房，完成對局後查詢最近 90 天紀錄。";
     } else if (authState.client) {
-      status = "登入服務已就緒。可匿名登入或使用已設定的社群帳號；遊戲配對與歷史仍是本機示範。";
+      status = "登入服務已就緒。登入後可建立或加入真人邀請房，完成對局後查詢歷史紀錄。";
     }
     if (authState.client && authState.notice) status = authState.notice;
+
+    const entryMessage = !authState.client
+      ? "尚未設定真人服務時，只能玩本機示範；房間與紀錄不會跨裝置或保存。"
+      : user
+        ? "可建立或加入跨裝置真人邀請房；示範對局不會保存紀錄。"
+        : "登入後可建立或加入跨裝置真人邀請房；示範對局不會保存紀錄。";
+    $("[data-entry-disclaimer]").textContent = entryMessage;
+    $("[data-room-disclaimer]").textContent = authState.client
+      ? "登入後可輸入邀請代碼加入真人房間；未設定服務時則只顯示本機預覽。"
+      : "尚未設定真人服務時，加入代碼只會展示本機預覽。";
 
     message.textContent = status;
     panel.setAttribute("aria-busy", String(authState.busy));
@@ -798,15 +1423,25 @@
         authState.session = session;
         authState.notice = "";
         if (previousUserId !== nextUserId) {
+          if (state.matchmaking && state.matchmaking.userId !== nextUserId) {
+            stopMatchmakingWatch();
+            state.matchmaking = null;
+            if (!$('[data-view="matching"]').classList.contains("hidden")) {
+              showView("home", true);
+            }
+            announce("登入帳號已變更；本機配對等待已停止，未完成的配對票券會在 30 秒內逾時。");
+          }
           if (state.liveRoom) {
             stopRoomStatusWatch();
+            stopLiveGameSync();
             state.roomOperationId += 1;
             state.roomBusy = false;
             $("[data-create-room]").disabled = false;
             $("[data-join-room]").disabled = false;
             $("[data-room-leave]").disabled = false;
             state.liveRoom = null;
-            if (!$('[data-view="invite-room"]').classList.contains("hidden")) {
+            if (!$('[data-view="invite-room"]').classList.contains("hidden") ||
+                !$('[data-view="game"]').classList.contains("hidden")) {
               showView("home", true);
             }
             announce("登入帳號已變更；原房間會在閒置期限後自動關閉。");
@@ -850,7 +1485,7 @@
       const { data, error } = await authState.client.auth.signInAnonymously();
       if (error) throw error;
       authState.session = data.session;
-      authState.notice = "匿名登入完成。連結社群身分可保留此帳號；目前示範遊戲仍不會保存紀錄。";
+      authState.notice = "匿名登入完成。可建立或加入真人邀請房；連結社群身分可保留帳號及歷史紀錄。";
     } catch (error) {
       console.warn("Anonymous sign-in failed", error);
       authState.notice = "匿名登入沒有完成。請確認 Supabase 已啟用 Anonymous Auth 後再試。";
@@ -894,7 +1529,7 @@
       const { error } = await authState.client.auth.signOut();
       if (error) throw error;
       authState.session = null;
-      authState.notice = "已登出。此原型的示範遊戲不會保存紀錄。";
+      authState.notice = "已登出。重新登入後可查詢這個帳號的真人對局紀錄。";
     } catch (error) {
       console.warn("Sign-out failed", error);
       authState.notice = "登出沒有完成，請稍後重試。";
@@ -1172,11 +1807,19 @@
   $$(".answer-option").forEach((button) => {
     button.addEventListener("click", () => {
       if (state.answers[state.questionIndex]) return;
+      if (state.matchMode === "live") {
+        submitLiveAnswer(Number(button.dataset.option));
+        return;
+      }
       revealAnswer(Number(button.dataset.option));
     });
   });
 
   $("[data-next]").addEventListener("click", () => {
+    if (state.matchMode === "live") {
+      continueLiveRoom();
+      return;
+    }
     if (state.questionIndex + 1 < questionBank[state.topic].length) {
       state.questionIndex += 1;
       renderQuestion();
@@ -1187,10 +1830,16 @@
   });
 
   $("[data-cancel]").addEventListener("click", () => {
+    if (state.matchmaking) {
+      cancelMatchmaking();
+      return;
+    }
     window.clearTimeout(state.matchTimer);
     showView("home", true);
     announce("已取消配對");
   });
+
+  $("[data-retry-match]").addEventListener("click", () => startMatching("random"));
 
   $$("[data-home]").forEach((button) => {
     button.addEventListener("click", (event) => {

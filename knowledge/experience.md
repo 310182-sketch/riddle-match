@@ -142,4 +142,16 @@
 
 - **經驗：** 靜態原型即使已寫好 RPC 呼叫，沒有專案設定或玩家 session 時也不能假裝服務成功。把 provider client 設定檢查、RPC 回傳狀態分支、登入要求和本機示範分開處理，能逐段交付 UI 而不混淆真實與預覽資料。
 - **適用範圍：** GitHub Pages 等靜態前端逐步接入 Supabase 或其他需要登入及伺服器狀態的服務。
-- **本專案做法：** 邀請房在 Auth 與公開 client 設定可用時呼叫 `create_invite_room`、`join_invite_room`、`get_invite_room_status` 和 `leave_room`；建立／加入／錯誤／逾期由 RPC 結果決定。無 Supabase 設定時仍顯示明確示範預覽。Chrome mock 覆蓋建立、代碼正規化、房主等待、對方加入、逾期及離開；輪詢需綁定 room ID 和登入者，只在等待期間重試，真人 Supabase 與 Realtime 尚待驗證。
+- **本專案做法：** 邀請房在 Auth 與公開 client 設定可用時呼叫 `create_invite_room`、`join_invite_room`、`get_invite_room_status` 和 `leave_room`；建立／加入／錯誤／逾期由 RPC 結果決定。無 Supabase 設定時仍顯示明確示範預覽。Chrome mock 覆蓋建立、代碼正規化、房主等待、對方加入、逾期及離開；後續答題與結果透過權限檢查 RPC 同步，Realtime 只作房間變更通知並保留輪詢備援。真人 Supabase 與跨裝置流程尚待驗證。
+
+## Realtime 事件用來觸發重新查詢，答案揭曉仍由 RPC 授權
+
+- **經驗：** Realtime 適合通知客戶端房間可能有新狀態，但不要直接訂閱包含玩家答案的資料。事件到達或輪詢計時時，都重新呼叫會檢查玩家身分的狀態 RPC；畫面只在 RPC 明確回傳雙方答案可揭曉時顯示選擇。操作按鈕也需等待 RPC 結果，避免本機畫面先於伺服器狀態前進。
+- **適用範圍：** 有答案保密要求的多人遊戲、協作表單及其他即時互動。
+- **本專案做法：** `game_rooms` 更新事件只觸發 `get_room_state`，前端另以定時輪詢作備援；送答、確認前進和讀取結果分別呼叫 `submit_answer`、`continue_room`、`get_room_results`。Chrome mock 已驗證對方未作答時不揭曉、雙方確認後才前進、最後只顯示 RPC 回傳的共同選擇。Supabase Realtime 授權、離線和跨裝置仍待真人環境測試。
+
+## 隨機配對要以服務端票券狀態處理逾時與取消競態
+
+- **經驗：** 配對畫面不能只依靠前端倒數判定逾時；加入佇列後應保存服務端 ticket ID，輪詢權限檢查後的狀態，並在逾時或離開時取消票券。取消與配對成功同時發生時，應以伺服器最後狀態為準，避免成功配對後仍留在等待頁。
+- **適用範圍：** 隨機配對、工作佇列及其他有期限且可取消的非同步請求。
+- **本專案做法：** 前端使用 `queue_for_match` 取得票券，透過 `get_match_status` 輪詢並用 `cancel_matchmaking` 取消；服務端回報配對成功時轉入真人房間，逾時頁面可重新排隊。Chrome mock 已驗證配對成功、30 秒逾時重試與取消；Supabase 競態及實際逾時仍待線上環境驗證。
