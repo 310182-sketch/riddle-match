@@ -174,6 +174,9 @@ Deno.test("Supabase migrations apply in order and protect private tables", async
       active_room_rpc: string | null;
       active_room_authenticated_execute: boolean;
       active_room_anonymous_execute: boolean;
+      matchmaking_recovery_rpc: string | null;
+      matchmaking_recovery_authenticated_execute: boolean;
+      matchmaking_recovery_index: string | null;
       security_definer_count: number;
       security_definer_without_fixed_search_path: number;
       anonymous_security_definer_execute_count: number;
@@ -193,6 +196,9 @@ Deno.test("Supabase migrations apply in order and protect private tables", async
         to_regprocedure('public.get_my_active_room()')::text as active_room_rpc,
         has_function_privilege('authenticated', 'public.get_my_active_room()', 'execute') as active_room_authenticated_execute,
         has_function_privilege('anon', 'public.get_my_active_room()', 'execute') as active_room_anonymous_execute,
+        to_regprocedure('public.get_my_matchmaking_ticket()')::text as matchmaking_recovery_rpc,
+        has_function_privilege('authenticated', 'public.get_my_matchmaking_ticket()', 'execute') as matchmaking_recovery_authenticated_execute,
+        to_regclass('public.matchmaking_queue_by_user_active_recent')::text as matchmaking_recovery_index,
         (
           select count(*)::integer
           from pg_proc p
@@ -239,6 +245,20 @@ Deno.test("Supabase migrations apply in order and protect private tables", async
       row.active_room_anonymous_execute,
       false,
       "anonymous role cannot recover an active room",
+    );
+    assert(
+      row.matchmaking_recovery_rpc,
+      "matchmaking ticket recovery RPC is installed",
+    );
+    assertEquals(
+      row.matchmaking_recovery_authenticated_execute,
+      true,
+      "authenticated player can recover their matchmaking ticket",
+    );
+    assertEquals(
+      row.matchmaking_recovery_index,
+      "matchmaking_queue_by_user_active_recent",
+      "active matchmaking tickets can be looked up by owner",
     );
     assert(
       row.security_definer_count > 0,
@@ -382,6 +402,167 @@ Deno.test("active room recovery only returns the caller's waiting or playing roo
     );
     await assertRejects(
       () => rpc(db, "", "select public.get_my_active_room() as response"),
+      "Authentication required",
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+Deno.test("matchmaking ticket recovery is private and returns waiting or matched state", async () => {
+  const db = await createDatabase();
+  try {
+    await insertUsers(db);
+    const guestWithoutTicket = await rpc(
+      db,
+      users.guest,
+      "select public.get_my_matchmaking_ticket() as response",
+    );
+    assertEquals(
+      guestWithoutTicket.status,
+      "none",
+      "players without a ticket receive an empty status",
+    );
+
+    const hostWaiting = await rpc(
+      db,
+      users.host,
+      "select public.queue_for_match($1, $2) as response",
+      ["music", "Host"],
+    );
+    assertEquals(
+      hostWaiting.status,
+      "waiting",
+      "host enters the waiting queue",
+    );
+    const guestStillHasNoTicket = await rpc(
+      db,
+      users.guest,
+      "select public.get_my_matchmaking_ticket() as response",
+    );
+    assertEquals(
+      guestStillHasNoTicket.status,
+      "none",
+      "other players cannot discover the host ticket",
+    );
+
+    const recoveredWaiting = await rpc(
+      db,
+      users.host,
+      "select public.get_my_matchmaking_ticket() as response",
+    );
+    assertEquals(
+      recoveredWaiting.status,
+      "waiting",
+      "waiting ticket status is restored",
+    );
+    assertEquals(
+      recoveredWaiting.ticket_id,
+      hostWaiting.ticket_id,
+      "the original ticket is restored",
+    );
+    assertEquals(
+      recoveredWaiting.topic_choice,
+      "music",
+      "ticket topic is restored",
+    );
+    assertEquals(
+      recoveredWaiting.nickname,
+      "Host",
+      "ticket nickname is restored",
+    );
+
+    await db.query(
+      "update public.matchmaking_queue set expires_at = clock_timestamp() - interval '1 second' where id = $1",
+      [hostWaiting.ticket_id],
+    );
+    const expired = await rpc(
+      db,
+      users.host,
+      "select public.get_my_matchmaking_ticket() as response",
+    );
+    assertEquals(
+      expired.status,
+      "timed_out",
+      "an expired ticket is not resumed as waiting",
+    );
+    const expiredRow = await db.query<{ status: string }>(
+      "select status from public.matchmaking_queue where id = $1",
+      [hostWaiting.ticket_id],
+    );
+    assertEquals(
+      expiredRow.rows[0].status,
+      "timed_out",
+      "expired ticket is closed in the database",
+    );
+
+    const hostNewTicket = await rpc(
+      db,
+      users.host,
+      "select public.queue_for_match($1, $2) as response",
+      ["travel", "Host"],
+    );
+    assertEquals(
+      hostNewTicket.status,
+      "waiting",
+      "host can start a new queue after timeout",
+    );
+    const guestMatched = await rpc(
+      db,
+      users.guest,
+      "select public.queue_for_match($1, $2) as response",
+      ["travel", "Guest"],
+    );
+    assertEquals(
+      guestMatched.status,
+      "matched",
+      "guest matches the existing ticket",
+    );
+
+    const hostMatchedRecovery = await rpc(
+      db,
+      users.host,
+      "select public.get_my_matchmaking_ticket() as response",
+    );
+    const guestMatchedRecovery = await rpc(
+      db,
+      users.guest,
+      "select public.get_my_matchmaking_ticket() as response",
+    );
+    assertEquals(
+      hostMatchedRecovery.status,
+      "matched",
+      "host can recover a recently matched ticket",
+    );
+    assertEquals(
+      guestMatchedRecovery.status,
+      "matched",
+      "guest can recover their matched ticket",
+    );
+    assertEquals(
+      hostMatchedRecovery.room_id,
+      guestMatched.room_id,
+      "host is routed to the matched room",
+    );
+    assertEquals(
+      guestMatchedRecovery.room_id,
+      guestMatched.room_id,
+      "guest is routed to the matched room",
+    );
+    assertEquals(
+      hostMatchedRecovery.opponent_nickname,
+      "Guest",
+      "host sees only the matched opponent nickname",
+    );
+    assertEquals(
+      guestMatchedRecovery.opponent_nickname,
+      "Host",
+      "guest sees only the matched opponent nickname",
+    );
+
+    await assertRejects(
+      () =>
+        rpc(db, "", "select public.get_my_matchmaking_ticket() as response"),
       "Authentication required",
     );
   } finally {

@@ -156,7 +156,7 @@
     $("[data-opponent-name]").textContent = "小島";
     $("[data-opponent-avatar]").textContent = "島";
     $("[data-opponent-mode]").textContent = "示範玩家";
-    $("[data-demo-disclaimer]").classList.remove("hidden");
+    $("[data-demo-disclaimer]").classList.toggle("hidden", liveQueue);
     const matchTitle = $("[data-match-title]");
     const matchTitleHighlight = document.createElement("span");
     const matchTitleLead = demoMode ? "一個好問題，" : "等待一位玩家，";
@@ -584,7 +584,10 @@
           authState.session?.user?.id !== userId ||
           activeView?.dataset.view !== "home") return;
       if (error) throw error;
-      if (!data || data.status === "none") return;
+      if (!data || data.status === "none") {
+        await restoreMyMatchmakingTicket(userId, operationId);
+        return;
+      }
       if (!data.room_id || !["waiting", "playing"].includes(data.status)) {
         throw new Error("Unexpected active room response");
       }
@@ -604,6 +607,85 @@
       if (operationId !== state.roomOperationId || authState.session?.user?.id !== userId) return;
       console.warn("Could not restore active room", error);
       announce("目前無法恢復進行中的房間，請確認連線後重新載入。");
+    }
+  }
+
+  async function restoreMyMatchmakingTicket(userId, roomOperationId) {
+    let attempt = null;
+    try {
+      const { data, error } = await authState.client.rpc("get_my_matchmaking_ticket");
+      const activeView = document.querySelector("[data-view]:not(.hidden)");
+      if (roomOperationId !== state.roomOperationId ||
+          authState.session?.user?.id !== userId ||
+          activeView?.dataset.view !== "home") return;
+      if (error) throw error;
+      if (!data || data.status === "none") return;
+      if (!["waiting", "matched", "timed_out"].includes(data.status)) {
+        throw new Error("Unexpected matchmaking recovery response");
+      }
+      if (data.status !== "timed_out" && !data.ticket_id) {
+        throw new Error("Recovered matchmaking response did not include a ticket id");
+      }
+
+      const topicChoice = Object.entries(topicChoiceKeys)
+        .find(([, key]) => key === data.topic_choice)?.[0] || "隨機";
+      state.matchMode = "live";
+      state.topicChoice = topicChoice;
+      state.topic = topicLabels[data.topic_key] || (topicChoice === "隨機" ? "旅行" : topicChoice);
+      state.nickname = data.nickname || getPlayerNickname();
+      state.answers = [];
+      state.gameQuestions = null;
+      state.gameChoice = null;
+
+      const expiry = Date.parse(data.expires_at);
+      attempt = {
+        operationId: ++state.matchmakingOperationId,
+        userId,
+        ticketId: data.ticket_id || null,
+        cancelRequested: false,
+        expiresAt: Number.isFinite(expiry) ? expiry : Date.now() + 30000
+      };
+      state.matchmaking = attempt;
+      state.matchmakingBusy = false;
+
+      const matchTitle = $("[data-match-title]");
+      const matchTitleHighlight = document.createElement("span");
+      matchTitleHighlight.textContent = "一起探索共同點。";
+      matchTitle.replaceChildren(
+        document.createTextNode("等待一位玩家，"),
+        document.createElement("br"),
+        matchTitleHighlight,
+      );
+      $("[data-match-topic]").textContent = topicChoice === "隨機" ? "隨機主題" : topicChoice;
+      $("[data-opponent-name]").textContent = "等待配對";
+      $("[data-opponent-avatar]").textContent = "…";
+      $("[data-opponent-mode]").textContent = "真人玩家";
+      $("[data-demo-disclaimer]").classList.add("hidden");
+      $("[data-match-eyebrow]").textContent = "真人隨機配對";
+      $("[data-match-caption]").textContent = "正在恢復先前的配對狀態…";
+      $("[data-match-note]").textContent = "已找回這個帳號的配對票券；你可以繼續等待或取消配對。";
+      $("[data-match-timeout-note]").textContent = "等候上限 30 秒；逾時後可重新加入配對。";
+      $("[data-match-progress]").classList.remove("is-preview");
+      $("[data-use-demo]").classList.add("hidden");
+      $("[data-retry-match]").classList.add("hidden");
+      $("[data-cancel]").disabled = false;
+      $("[data-cancel]").textContent = "取消配對";
+      refreshSafetyActions();
+      showView("matching", true);
+
+      if (data.status === "waiting") {
+        await pollMatchStatus(attempt);
+      } else {
+        await handleMatchStatus(attempt, data);
+      }
+    } catch (error) {
+      if (roomOperationId !== state.roomOperationId || authState.session?.user?.id !== userId) return;
+      console.warn("Could not restore matchmaking ticket", error);
+      if (attempt && matchingIsCurrent(attempt)) {
+        showMatchmakingRetry("暫時無法恢復先前的配對狀態，請稍後重試。", "配對狀態暫時無法使用");
+      } else {
+        announce("目前無法恢復先前的配對狀態，請確認連線後重新載入。");
+      }
     }
   }
 

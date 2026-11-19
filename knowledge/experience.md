@@ -106,7 +106,7 @@
 
 - **經驗：** PGlite 可在瀏覽器執行 PostgreSQL，讓 migration 在建立雲端專案前先做套用和 RPC 回歸測試。把最小 `auth.users`、`auth.uid()`、角色及登入 claim stub 寫進版本控制，可讓後續 migration 修改重複檢查 PostgreSQL／PLpgSQL 語法、權限邊界及核心資料流程，不必依賴一次性的手動 smoke test。
 - **適用範圍：** 使用 PostgreSQL、RPC、觸發器和 RLS 的 Supabase 專案，且本機沒有 Docker、PostgreSQL 或 Supabase CLI 時。
-- **本專案做法：** `supabase/tests/migrations.test.ts` 以固定版本的 PGlite 自動讀取 `supabase/migrations/` 內所有 SQL 檔案，再按檔名順序套用；新增 migration 不必再更新測試中的重複清單。測試可用 `deno test --allow-read --allow-net supabase/tests/migrations.test.ts` 重複執行。11 項測試涵蓋 migration／權限、本人進行中房間恢復權限、security-definer 函式固定空 `search_path` 且不能由 `anon` 執行、雙人答案揭曉與歷史、隨機配對主題相容／封鎖排除／取消、封鎖與配對／邀請加入共用交易鎖、歷史游標分頁／90 天範圍／三局排名門檻、本人歷史讀取和刪除權限、24／90／180 天清理、配對與開房限量、檢舉，以及帳號刪除時關閉房間、移除本人歷史、匿名化對手歷史並移除案件雙方帳號 ID。測試需以不同 JWT subject 呼叫 security-definer RPC，驗證讀取與刪除都只作用於該玩家資料，並確認未登入呼叫被拒絕；刪除帳號測試也應同時核對 cascade、匿名化和保留期限，避免只看 Auth row 是否消失。所有應用 security-definer 函式都固定空 `search_path`，回歸測試直接檢查 `pg_proc.proconfig`，並確認匿名角色沒有任何應用 security-definer 函式的執行權。PGlite 的共用鎖檢查只能驗證不變條件；PostgreSQL 16 多連線整合測試另已驗證封鎖與配對／邀請加入、兩種帳號限量競態。這些本機檢查仍不等同 Supabase Auth／Realtime／pg_cron／RLS 環境驗證。
+- **本專案做法：** `supabase/tests/migrations.test.ts` 以固定版本的 PGlite 自動讀取 `supabase/migrations/` 內所有 SQL 檔案，再按檔名順序套用；新增 migration 不必再更新測試中的重複清單。測試可用 `deno test --allow-read --allow-net supabase/tests/migrations.test.ts` 重複執行。12 項測試涵蓋 migration／權限、本人房間與配對票券恢復權限、security-definer 函式固定空 `search_path` 且不能由 `anon` 執行、雙人答案揭曉與歷史、隨機配對主題相容／封鎖排除／取消、封鎖與配對／邀請加入共用交易鎖、歷史游標分頁／90 天範圍／三局排名門檻、本人歷史讀取和刪除權限、24／90／180 天清理、配對與開房限量、檢舉，以及帳號刪除時關閉房間、移除本人歷史、匿名化對手歷史並移除案件雙方帳號 ID。測試需以不同 JWT subject 呼叫 security-definer RPC，驗證讀取與刪除都只作用於該玩家資料，並確認未登入呼叫被拒絕；刪除帳號測試也應同時核對 cascade、匿名化和保留期限，避免只看 Auth row 是否消失。所有應用 security-definer 函式都固定空 `search_path`，回歸測試直接檢查 `pg_proc.proconfig`，並確認匿名角色沒有任何應用 security-definer 函式的執行權。PGlite 的共用鎖檢查只能驗證不變條件；PostgreSQL 16 多連線整合測試另已驗證封鎖與配對／邀請加入、兩種帳號限量競態。這些本機檢查仍不等同 Supabase Auth／Realtime／pg_cron／RLS 環境驗證。
 
 ## 多連線交易競態要用真實 PostgreSQL 驗證
 
@@ -149,6 +149,12 @@
 - **經驗：** Auth SDK 保存並還原登入 session，只能證明玩家身分仍有效；房間、票券等伺服器狀態仍需以該身分重新查詢。不要把瀏覽器曾保存的 session 誤當成房間已恢復。
 - **適用範圍：** 有登入 session 和伺服器端即時狀態的單頁應用，例如多人房間、工作佇列或未完成的交易流程。
 - **本專案做法：** Auth session 初始化後呼叫 `get_my_active_room`，RPC 從 `auth.uid()` 推導玩家並只回傳本人未結束房間；前端在帳號切換或導航後丟棄過期回應。PGlite 驗證本人／非成員權限，headless Chrome mock 確認重新載入會接回房間並載入目前題目。跨裝置行為仍需在 Supabase 環境驗證。
+
+## 重新載入時要接回等待票券並處理配對競速
+
+- **經驗：** 隨機配對票券保存在伺服器；頁面重載會丟失 JavaScript 記憶體中的 ticket ID。只恢復登入 session 或只查進行中房間，會讓玩家漏掉仍在等待的配對，或漏掉查詢間剛完成的配對。重新載入時要用登入者身分查詢現有票券，沿用原始期限；配對狀態要由服務端回傳，不能在恢復失敗時偷偷建立新票券。
+- **適用範圍：** 有期限、可取消且可能在頁面離開期間完成的工作佇列、上傳、預約或多人配對流程。
+- **本專案做法：** 先透過 `get_my_active_room` 查房間，再透過 `get_my_matchmaking_ticket` 找本人等待票券或剛配對的有效房間；等待狀態以原 ticket ID 重新輪詢，超時狀態提供明確重試。後端從 `auth.uid()` 推導票券擁有者並序列化狀態列，PGlite 驗證私有權限與逾時，headless Chrome mock 驗證重載後恢復等待並在配對後進房。真人 Supabase 網路競態仍待線上環境驗證。
 
 ## 私人資料請求要綁定登入帳號和請求代次
 
