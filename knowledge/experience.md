@@ -113,3 +113,9 @@
 - **經驗：** 社群平台的內容 API、OAuth 授權與通用登入服務是不同能力；需核對帳號資格、可取得的穩定識別碼、email、token 期限、app review 和 Auth 服務的 custom provider 要求。
 - **適用範圍：** 把 Facebook、Google、X、Instagram、Threads 等第三方身分接入自有帳號系統的網頁或 App。
 - **本專案做法：** 先使用 Supabase 內建的 Facebook、Google、X provider；Instagram Login 目前限專業帳號，Threads 要用 custom OAuth 並完成 app review。Instagram／Threads 不保證有 email，因此匿名帳號連結需測試手動 identity linking。每次實作前重新查閱官方文件，因 provider 條件和審核政策可能變動。
+
+## 靜態網站可預先接好 Auth，但必須明確區分未設定狀態
+
+- **經驗：** GitHub Pages 可以載入 Supabase browser client 並支援 PKCE OAuth；若把 project URL／anon key 和 provider 開關放在獨立 client 設定檔，前端整合可先完成，之後再由專案管理者提供公開設定。未設定或 SDK 載入失敗時停用登入按鈕，可避免原型顯示看似成功的登入；provider secrets 仍必須只存後端。
+- **適用範圍：** 靜態託管網站需要匿名帳號、OAuth、PKCE callback 或逐步遷移到雲端後端的產品原型。
+- **本專案做法：** `site/supabase-config.js` 僅包含公開 URL／anon key 與 provider 設定；匿名登入、OAuth、PKCE session 恢復和 identity linking 使用具 SRI 的 Supabase JS v2.119.2。只有已配置的 provider 才可點擊，缺少服務設定時保留本機示範。mock client 可先檢查前端狀態和 provider ID，但不能取代 Supabase Manual Linking、實際 provider callback 及 GitHub Pages redirect URL 的驗證。

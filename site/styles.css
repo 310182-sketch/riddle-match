@@ -459,6 +459,23 @@ body { font-size: 16px; line-height: 1.55; }
 .history-empty > p { max-width: 310px; margin: 7px 0 0; color: #686d62; font-size: 13px; line-height: 1.65; }
 .history-view > .workflow-note { margin-top: 17px; }
 
+/* Optional Supabase Auth */
+.auth-panel { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 15px; }
+.auth-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.auth-eyebrow { margin: 0 0 4px; color: var(--green); font-size: 9px; font-weight: 700; letter-spacing: 1.1px; }
+.auth-heading h2 { margin: 0; font-size: 16px; letter-spacing: -.03em; }
+.auth-status { margin: 8px 0 10px; color: #62665d; font-size: 12px; line-height: 1.6; }
+.auth-anonymous-button,.auth-provider-button,.auth-signout { min-height: 42px; border: 1px solid #dfe4d9; border-radius: 9px; background: #fffefa; color: var(--green-dark); font-size: 12px; font-weight: 700; cursor: pointer; transition: .18s ease; }
+.auth-anonymous-button { width: 100%; border-color: var(--green); background: var(--green); color: white; }
+.auth-provider-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 8px; }
+.auth-provider-button { width: 100%; padding: 0 8px; }
+.auth-signout { min-height: 34px; padding: 0 11px; color: #62665d; font-size: 11px; }
+.auth-anonymous-button:not(:disabled):hover { background: var(--green-dark); }
+.auth-provider-button:not(:disabled):hover,.auth-signout:not(:disabled):hover { border-color: #b9c5b1; background: var(--green-soft); }
+.auth-anonymous-button:disabled,.auth-provider-button:disabled,.auth-signout:disabled { opacity: .52; }
+.auth-note { margin: 9px 0 0; color: #797d71; font-size: 11px; line-height: 1.65; }
+.auth-panel[aria-busy="true"] .auth-status { color: var(--green-dark); }
+
 @media (max-width: 650px) {
   .workflow-view { min-height: 0; padding-block: 23px 40px; }
   .workflow-view h1 { font-size: clamp(27px, 8vw, 34px); }
@@ -467,6 +484,7 @@ body { font-size: 16px; line-height: 1.55; }
   .history-empty { min-height: 140px; }
 }
 @media (max-width: 380px) {
+  .auth-provider-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .entry-methods { grid-template-columns: 1fr; gap: 7px; }
   .entry-methods > button { min-height: 46px; }
   .join-room-controls { grid-template-columns: minmax(0, 1fr); }

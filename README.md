@@ -11,7 +11,31 @@
 - 匯出 1080×1920 結果分享卡；可呼叫系統分享面板或下載 PNG。Instagram 交接仍需用實機確認。
 - 可在手機與桌面瀏覽器操作。
 
-這是純前端互動原型。配對對象和對方答案由瀏覽器內的範例資料模擬；沒有真人配對、帳號服務、聊天室或遊戲紀錄，也不會保存暱稱。畫面會持續標示示範模式。
+配對對象和對方答案由瀏覽器內的範例資料模擬；尚未連接真人配對、遊戲紀錄或統計，也不會保存暱稱。畫面會持續標示示範模式。首頁已加入可選的 Supabase Auth 入口；目前尚無專案設定，因此登入按鈕停用，示範遊戲仍可直接使用。
+
+## Supabase Auth 設定
+
+`site/supabase-config.js` 是公開用戶端設定範本。建立 Supabase 專案後，填入 project URL 和 anon／publishable key，並在 Dashboard 啟用 Anonymous Auth 及已完成設定的 provider：
+
+- `google`、`facebook`、`x` 設為 `true` 後，分別使用 Supabase 內建 provider；程式將 X 對應至 Supabase 的 `twitter` provider ID。
+- `instagram`、`threads` 填入 Supabase custom provider 的完整識別碼，例如 `custom:instagram`、`custom:threads`。只有在 Meta app 資格、審核與 Supabase custom OAuth 設定完成後才啟用。
+- 在 Supabase Auth URL Configuration 加入本機 HTTP 預覽網址和正式 GitHub Pages 網址，provider callback 則使用 Supabase Dashboard 顯示的 callback URL。OAuth 不支援直接從 `file://` 開啟。
+
+設定完成後的 `providers` 形式如下；只將已在 Supabase Auth 設定完成的 provider 打開：
+
+```js
+providers: {
+  google: true,
+  facebook: true,
+  x: true,
+  instagram: "custom:instagram",
+  threads: "custom:threads"
+}
+```
+
+瀏覽器以 Supabase JS v2.119.2 初始化匿名登入、OAuth、session 恢復及匿名帳號的 identity linking；CDN 檔案使用 SRI 固定完整性。未設定 URL／key 或 SDK 無法載入時，登入入口維持停用，示範流程仍可使用。登入尚未接上配對、歷史或統計服務。anon／publishable key 是公開用戶端設定；service role key 和各 provider client secret 僅能留在 Supabase 後端設定。
+
+匿名帳號連結前，需在 Supabase Auth 設定中啟用 **Manual Linking**。OAuth redirect allow list 必須包含實際網站子路徑；本機應透過 HTTP localhost 預覽，而不是直接開啟 HTML 檔。
 
 ## 真人配對後端草稿
 
@@ -23,7 +47,7 @@
 
 ## GitHub Pages 部署
 
-Repository 的 .github/workflows/pages.yml 會將 site/ 發布至 GitHub Pages。推送 main、master 或 `codex/commonality-quiz-prototype` 分支時，workflow 會自動執行；目前原型分支可獨立發布，不需先覆蓋遠端 `main`。第一次部署前，請在 repository 的 **Settings → Pages → Build and deployment → Source** 選擇 **GitHub Actions**。
+Repository 的 `.github/workflows/pages.yml` 會將 `site/` 發布至 GitHub Pages。推送 `main`、`master` 或 `codex/commonality-quiz-prototype` 時 workflow 會觸發；目前 GitHub 的 `github-pages` environment 保護規則拒絕此功能分支，因此尚未部署。需在 repository environment 允許此分支後重跑 workflow；第一次部署前也需將 Pages source 設為 **GitHub Actions**。
 
 ## 文件
 
@@ -33,7 +57,7 @@ Repository 的 .github/workflows/pages.yml 會將 site/ 發布至 GitHub Pages�
 
 ## 下一步
 
-- 建立 Supabase 專案，套用並驗證 migration、RLS、匿名登入、Realtime 和資料清除排程；設定 Facebook、Google、X，並依 Meta 審查結果評估 Instagram、Threads custom OAuth。
+- 建立 Supabase 專案並填入 `site/supabase-config.js`，啟用 Anonymous Auth，套用並驗證 migration、RLS、Realtime 和資料清除排程；設定 Facebook、Google、X，並依 Meta 審查結果評估 Instagram、Threads custom OAuth。
 - 將前端示範流程接上真人配對 RPC，並用兩個不同裝置走完整局。
 - 在 iOS／Android 實機與 VoiceOver／TalkBack 檢查無障礙操作，收集玩家回饋。
 - 真人 MVP 上線前完成檢舉、封鎖、離線處理及匿名帳號濫用風險規劃。

@@ -15,7 +15,7 @@
 - **仍是模擬：** 對方答案來自瀏覽器範例資料。尚未提供真實登入、建立／加入房間、真人隨機配對、跨裝置同步、遊戲歷史或共同點統計。結果頁已可產生 1080×1920 PNG，支援系統分享面板及下載備援；尚未在 iOS／Android 實機確認 Instagram 交接。
 - **後端：** `supabase/migrations/` 已包含即時對局、隨機配對、邀請房間、雙人歷史摘要及查詢 RPC 草稿；尚未建立 Supabase 專案、套用或執行驗證。尚無線上資料庫、Auth、Realtime 或已驗證的 RLS。
 - **資料政策：** 真人對局房間及原始答案保留到結束後 24 小時，另存玩家各自可查詢、可刪除的對局摘要 90 天；統計只計最近 90 天。這是目前採用的 MVP 預設，migration 擴充草稿已完成，尚未套用或部署驗證。
-- **登入與社群：** 已完成官方 provider 支援盤點：Supabase 內建 Facebook、Google、X OAuth 2.0；Instagram 與 Threads 需用 custom OAuth。Meta Instagram Login 限專業帳號，Threads 向一般使用者開放前需 app review。尚未建立 provider app、設定 callback 或測試登入和匿名帳號連結。
+- **登入與社群：** 已加入可選的 Supabase Auth 前端入口，包含匿名登入、Google／Facebook／X OAuth、Instagram／Threads custom provider 設定、PKCE session 恢復及匿名帳號 identity linking。Chrome mock client 已驗證登入狀態和 provider 呼叫；尚無 Supabase URL／anon key，登入按鈕目前停用，live login／callback／帳號 linking 仍未設定或驗證。平台限制見 [knowledge/decision.md](decision.md)。
 - **前端設計：** 已完成第一輪整體字級、留白、按鈕及主題選項版面整理，並加入房間、配對等待和歷史空狀態的操作預覽；已重跑六種寬度的三個主要頁面及五題鍵盤流程。真實成功／逾時狀態與後端資料仍待串接。
 - **發布：** 功能分支的 Pages workflow 已推送並觸發，但 GitHub 因 github-pages 環境保護規則禁止此分支部署。需確認是否將此分支加入允許清單，再重新部署。
 - **工作區：** 原型位於 `site/`，可直接開啟 `site/index.html` 操作，不需安裝套件或建置。
@@ -79,6 +79,7 @@
 - [x] 依回饋放大主題與答案選項字級，改善觸控高度、焦點外框、答案選取語意及題目進度標記。
 - [x] 統一前端字體階層、留白、卡片及按鈕尺寸；放大輔助文字，將主題改為格狀選擇並降低選取框突兀感。
 - [x] 用 Chrome 重驗 320、360、390、768、1024、1440px 首頁、遊戲及結果頁，確認沒有水平溢出；以鍵盤在六種寬度完成五題流程。
+- [x] 加入登入與玩家身分介面；未設定 Supabase 時清楚停用登入入口，且不影響本機示範流程。
 - [ ] 完成後端後，再以不同裝置驗證房間邀請、隨機配對及 90 天歷史查詢權限。
 - [x] 加入建立邀請房、複製示範代碼及輸入房間代碼的前端預覽；畫面清楚說明尚未建立跨裝置房間。
 - [x] 加入隨機配對等待／取消及轉入示範對局的畫面；實際配對、成功狀態與 30 秒逾時仍待後端串接。
@@ -92,10 +93,13 @@
 - [x] 建立第一版 Supabase SQL migration 初稿，含題庫、配對佇列、房間、答案、RLS、Realtime 安全房間狀態、RPC 及清除函式。
 - [x] 擴充 migration 草稿，加入 12 位邀請代碼、建立／加入房間 RPC、單一有效房間檢查及隨機配對互斥。
 - [x] 加入完成對局時的雙方私人歷史摘要、90 天查詢與保留、逐筆刪除、共同點排名及帳號刪除匿名化草稿。
+- [x] 加入可設定的 Supabase JS Auth client：支援匿名登入、Facebook／Google／X、以 custom provider ID 設定 Instagram／Threads、session 恢復與已登入匿名帳號的 identity linking；未設定時保留示範模式。
 - [ ] 建立 Supabase 專案與開發／正式環境，啟用 Anonymous Auth，套用並實際驗證 migration。
+- [ ] 啟用 Supabase Manual Linking；設定本機與 GitHub Pages redirect allow list 及 Google／Facebook／X callback。
 - [ ] 完成 RLS、Realtime、RPC 權限和資料驗證；確保玩家只能查看有權存取的房間、答案與紀錄。
 - [ ] 接上匿名登入、匿名帳號手動 linking 及 Facebook／Google／X 登入，處理 session 恢復、callback 與錯誤狀態。
 - [ ] 依 Meta 的帳號資格及 app review 狀態加入 Instagram、Threads custom OAuth，確認 provider 身分能連結到原匿名玩家。
+- [ ] 使用實際 Supabase 專案設定驗證登入／登出、OAuth callback、頁面重載後的 session 恢復及匿名帳號 linking。
 - [ ] 將瀏覽器示範流程接上登入、建立／加入房間、隨機配對 RPC、Realtime 狀態與雙人作答同步。
 - [ ] 確保只有雙方完成作答後才揭曉答案，並處理重複送出、逾時、離線、中途離開、重連及取消配對。
 - [x] 建立已完成對局的持久紀錄與受權限保護的歷史查詢 RPC 草稿，按定案的保存政策清除或匿名化資料。

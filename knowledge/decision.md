@@ -52,6 +52,15 @@
 - **推薦實作順序：** 先完成 Google、Facebook、X 內建 provider，再驗證 Threads custom OAuth；Instagram custom OAuth 僅依專業帳號限制提供。所有流程均須使用 Supabase callback，client secret 保留在 Supabase Auth 設定。
 - **官方依據：** [Supabase social sign-in](https://supabase.com/docs/guides/auth/social-login)、[Supabase custom OAuth/OIDC providers](https://supabase.com/docs/guides/auth/custom-oauth-providers)、[Supabase identity linking](https://supabase.com/docs/guides/auth/identity-linking)、[Meta Instagram Login](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/)、[Meta Threads API](https://developers.facebook.com/docs/threads/get-started/)、[Supabase X OAuth 2.0](https://supabase.com/docs/guides/auth/social-login/auth-twitter)。
 
+## Supabase Auth 前端接線
+
+- **狀態：** 已實作可選的瀏覽器端 Auth client 和登入介面，並用 mock client 檢查匿名登入、Facebook identity linking 和 X OAuth provider ID；尚未設定 Supabase 專案或驗證真人 provider flow。
+- **決定：** 靜態網站的 `site/supabase-config.js` 只存 project URL、anon／publishable key 和已啟用 provider 清單。Facebook、Google、X 使用內建 provider；X 對應 provider ID `twitter`。Instagram、Threads 只接受 Supabase `custom:` provider 識別碼。
+- **登入行為：** 玩家可匿名登入；已登入玩家按社群 provider 時使用 Supabase identity linking，保留現有匿名帳號。以 PKCE 保存和恢復 session，不在畫面顯示 email 或 provider token。
+- **安全界線：** URL 和 anon／publishable key 屬公開 client 設定；provider client secret 和 service role key 只存在 Supabase Auth／後端。未提供設定或 SDK 時，登入按鈕停用且本機示範繼續運作。登入成功目前仍不代表真人配對或歷史功能已連線。
+- **尚待外部設定：** Supabase 專案 URL 和公開用戶端 key、啟用 Anonymous Auth 與 Manual Linking、provider app／callback、允許 redirect URL，以及 Instagram／Threads custom OAuth 設定。這些資料目前不在工作區，尚不能執行 live login。
+- **推薦：** 先以開發用 Supabase 專案完成 Anonymous Auth 與 Google／Facebook／X callback 和 linking 實測，再設定正式 GitHub Pages redirect；Meta custom provider 等 app review 和帳號資格確認後再開放。
+
 ## 歷史紀錄與共同點統計
 
 - **狀態：** 產品規格已採用；歷史資料表、完局摘要 trigger 與查詢 RPC 已寫入 migration 草稿，尚未部署或驗證。

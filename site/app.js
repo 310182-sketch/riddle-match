@@ -44,6 +44,16 @@
     shareCardVersion: 0
   };
 
+  const authState = {
+    config: null,
+    client: null,
+    session: null,
+    busy: false,
+    notice: "",
+    initError: false,
+    subscription: null
+  };
+
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const views = $$("[data-view]");
@@ -426,6 +436,193 @@
     announce.timer = window.setTimeout(() => toast.classList.remove("visible"), 2400);
   }
 
+  const authProviderLabels = {
+    google: "Google",
+    facebook: "Facebook",
+    x: "X",
+    instagram: "Instagram",
+    threads: "Threads"
+  };
+
+  function configuredAuthProvider(name) {
+    const providers = authState.config && authState.config.providers;
+    if (!providers) return null;
+    if (name === "x") return providers.x === true ? "twitter" : null;
+    if (name === "instagram" || name === "threads") {
+      const identifier = typeof providers[name] === "string" ? providers[name].trim() : "";
+      return /^custom:[a-z0-9](?:[a-z0-9:-]{0,42})$/.test(identifier) ? identifier : null;
+    }
+    return providers[name] === true ? name : null;
+  }
+
+  function isAnonymousUser(user) {
+    return Boolean(user && (user.is_anonymous === true || user.app_metadata?.provider === "anonymous"));
+  }
+
+  function refreshAuthPanel() {
+    const panel = $(".auth-panel");
+    const message = $("[data-auth-status]");
+    const anonymousButton = $("[data-auth-anonymous]");
+    const signOutButton = $("[data-auth-signout]");
+    const user = authState.session?.user || null;
+    const hasPublicConfig = Boolean(authState.config?.url && authState.config?.anonKey);
+    const hasSdk = typeof window.supabase?.createClient === "function";
+
+    let status = "Supabase 尚未設定。可先玩本機示範；示範配對和答案不會保存。";
+    if (hasPublicConfig && !hasSdk) {
+      status = "登入元件目前無法載入。請確認網路連線後重新整理；本機示範仍可使用。";
+    } else if (hasPublicConfig && authState.initError) {
+      status = "登入服務設定無法使用。請確認 Supabase 專案網址和公開用戶端金鑰。";
+    } else if (authState.client && user) {
+      status = isAnonymousUser(user)
+        ? "已匿名登入。連結社群身分可保留此帳號；未連結前登出可能無法恢復。配對與紀錄仍是本機示範。"
+        : "已登入。此原型尚未連接真人配對和歷史服務，不會保存遊戲紀錄。";
+    } else if (authState.client) {
+      status = "登入服務已就緒。可匿名登入或使用已設定的社群帳號；遊戲配對與歷史仍是本機示範。";
+    }
+    if (authState.client && authState.notice) status = authState.notice;
+
+    message.textContent = status;
+    panel.setAttribute("aria-busy", String(authState.busy));
+    anonymousButton.disabled = !authState.client || authState.busy || Boolean(user);
+    anonymousButton.textContent = user
+      ? (isAnonymousUser(user) ? "已匿名登入" : "已有帳號登入")
+      : "匿名登入";
+    signOutButton.classList.toggle("hidden", !user);
+    signOutButton.disabled = authState.busy;
+
+    $$("[data-auth-provider]").forEach((button) => {
+      const name = button.dataset.authProvider;
+      const provider = configuredAuthProvider(name);
+      const identities = user?.identities || [];
+      const linked = identities.some((identity) => identity.provider === provider || identity.provider === name);
+      button.disabled = !authState.client || !provider || authState.busy || linked;
+      button.textContent = linked
+        ? `${authProviderLabels[name]} 已連結`
+        : user
+          ? `連結 ${authProviderLabels[name]}`
+          : `使用 ${authProviderLabels[name]} 登入`;
+    });
+  }
+
+  function getAuthRedirectUrl() {
+    const isLocalHttp = window.location.protocol === "http:" &&
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    if (window.location.protocol !== "https:" && !isLocalHttp) {
+      throw new Error("Auth redirects require HTTPS or localhost.");
+    }
+    return `${window.location.origin}${window.location.pathname}`;
+  }
+
+  async function initializeSupabaseAuth() {
+    authState.config = window.SAMEWAVE_SUPABASE_CONFIG || {};
+    if (!authState.config.url || !authState.config.anonKey || typeof window.supabase?.createClient !== "function") {
+      refreshAuthPanel();
+      return;
+    }
+
+    try {
+      const projectUrl = new URL(authState.config.url);
+      const isLocalHttp = projectUrl.protocol === "http:" &&
+        (projectUrl.hostname === "localhost" || projectUrl.hostname === "127.0.0.1");
+      if (projectUrl.protocol !== "https:" && !isLocalHttp) {
+        throw new Error("Supabase project URL must use HTTPS.");
+      }
+      authState.client = window.supabase.createClient(authState.config.url, authState.config.anonKey, {
+        auth: {
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          flowType: "pkce",
+          persistSession: true
+        }
+      });
+      const { data: listener } = authState.client.auth.onAuthStateChange((_event, session) => {
+        authState.session = session;
+        authState.notice = "";
+        refreshAuthPanel();
+      });
+      authState.subscription = listener.subscription;
+      const { data, error } = await authState.client.auth.getSession();
+      if (error) throw error;
+      authState.session = data.session;
+    } catch (error) {
+      console.warn("Supabase Auth initialization failed", error);
+      authState.client = null;
+      authState.session = null;
+      authState.initError = true;
+    }
+    refreshAuthPanel();
+  }
+
+  async function signInAnonymously() {
+    if (!authState.client || authState.busy || authState.session) return;
+    authState.busy = true;
+    authState.notice = "正在建立匿名玩家身分…";
+    refreshAuthPanel();
+    try {
+      const { data, error } = await authState.client.auth.signInAnonymously();
+      if (error) throw error;
+      authState.session = data.session;
+      authState.notice = "匿名登入完成。連結社群身分可保留此帳號；目前示範遊戲仍不會保存紀錄。";
+    } catch (error) {
+      console.warn("Anonymous sign-in failed", error);
+      authState.notice = "匿名登入沒有完成。請確認 Supabase 已啟用 Anonymous Auth 後再試。";
+    } finally {
+      authState.busy = false;
+      refreshAuthPanel();
+    }
+  }
+
+  async function signInOrLinkProvider(name) {
+    const provider = configuredAuthProvider(name);
+    if (!authState.client || !provider || authState.busy) return;
+    authState.busy = true;
+    authState.notice = `正在連接 ${authProviderLabels[name]}…`;
+    refreshAuthPanel();
+    try {
+      const options = { provider, options: { redirectTo: getAuthRedirectUrl() } };
+      const result = authState.session
+        ? await authState.client.auth.linkIdentity(options)
+        : await authState.client.auth.signInWithOAuth(options);
+      if (result.error) throw result.error;
+      authState.notice = authState.session
+        ? `正在連結 ${authProviderLabels[name]}；完成後會返回此頁。`
+        : `正在前往 ${authProviderLabels[name]} 登入；完成後會返回此頁。`;
+    } catch (error) {
+      console.warn("Social sign-in or identity linking failed", error);
+      authState.notice = "登入沒有完成。請確認該 provider 已在 Supabase 啟用，且回呼網址設定正確。";
+    } finally {
+      authState.busy = false;
+      refreshAuthPanel();
+    }
+  }
+
+  async function signOut() {
+    if (!authState.client || authState.busy) return;
+    if (isAnonymousUser(authState.session?.user) && !window.confirm("這是尚未連結社群身分的匿名帳號。登出後可能無法找回，仍要登出嗎？")) return;
+    authState.busy = true;
+    authState.notice = "正在登出…";
+    refreshAuthPanel();
+    try {
+      const { error } = await authState.client.auth.signOut();
+      if (error) throw error;
+      authState.session = null;
+      authState.notice = "已登出。此原型的示範遊戲不會保存紀錄。";
+    } catch (error) {
+      console.warn("Sign-out failed", error);
+      authState.notice = "登出沒有完成，請稍後重試。";
+    } finally {
+      authState.busy = false;
+      refreshAuthPanel();
+    }
+  }
+
+  $("[data-auth-anonymous]").addEventListener("click", signInAnonymously);
+  $("[data-auth-signout]").addEventListener("click", signOut);
+  $$("[data-auth-provider]").forEach((button) => {
+    button.addEventListener("click", () => signInOrLinkProvider(button.dataset.authProvider));
+  });
+
   $$("[data-topic-choice]").forEach((button) => {
     button.addEventListener("click", () => {
       state.topicChoice = button.dataset.topicChoice;
@@ -510,4 +707,5 @@
   });
 
   showView("home");
+  initializeSupabaseAuth();
 })();

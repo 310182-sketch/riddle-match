@@ -10,8 +10,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=7">
-    <script src="app.js?v=3" defer></script>
+    <link rel="stylesheet" href="styles.css?v=8">
+    <script src="supabase-config.js?v=1" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.js" integrity="sha384-A97u3Qnt9GZHURO9YJZRe7VQgGUeFzcv6I1oIGnUTxQrCxnpQMwR0/G8F2zt9abZ" crossorigin="anonymous" defer></script>
+    <script src="app.js?v=4" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -71,6 +73,25 @@
                 <button class="history-link" type="button" data-open-history>查看歷史紀錄與默契統計 <span aria-hidden="true">→</span></button>
               </div>
             </form>
+            <section class="auth-panel" aria-labelledby="auth-title" aria-busy="false">
+              <div class="auth-heading">
+                <div>
+                  <p class="auth-eyebrow">PLAYER ACCOUNT</p>
+                  <h2 id="auth-title">登入與玩家身分</h2>
+                </div>
+                <button class="auth-signout hidden" type="button" data-auth-signout>登出</button>
+              </div>
+              <p class="auth-status" data-auth-status role="status" aria-live="polite">登入服務尚未設定；可先玩本機示範，示範資料不會保存。</p>
+              <button class="auth-anonymous-button" type="button" data-auth-anonymous disabled>匿名登入</button>
+              <div class="auth-provider-grid" aria-label="社群登入與帳號連結">
+                <button class="auth-provider-button" type="button" data-auth-provider="google" disabled>Google</button>
+                <button class="auth-provider-button" type="button" data-auth-provider="facebook" disabled>Facebook</button>
+                <button class="auth-provider-button" type="button" data-auth-provider="x" disabled>X</button>
+                <button class="auth-provider-button" type="button" data-auth-provider="instagram" disabled>Instagram</button>
+                <button class="auth-provider-button" type="button" data-auth-provider="threads" disabled>Threads</button>
+              </div>
+              <p class="auth-note">Facebook、Google、X 須先在 Supabase 啟用並設定 callback。Instagram 僅支援符合資格的專業帳號；Threads 與 Instagram 需完成 Meta 審核及 custom OAuth 設定。配對、歷史與統計尚未連上服務。</p>
+            </section>
           </div>
 
           <div class="preview-wrap" aria-label="二選一遊戲示意">
