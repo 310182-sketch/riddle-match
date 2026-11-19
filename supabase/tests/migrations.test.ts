@@ -880,11 +880,27 @@ Deno.test("matchmaking and invite room rate limits enforce their thresholds", as
   }
 });
 
-Deno.test("account deletion closes rooms and removes report identity", async () => {
+Deno.test("account deletion closes rooms and clears private history identities", async () => {
   const db = await createDatabase();
   try {
     await insertUsers(db);
     const { roomId, inviteCode } = await createPlayingRoom(db);
+    const hostHistoryId = await insertHistoryMatch(
+      db,
+      users.host,
+      users.guest,
+      "Guest snapshot",
+      1,
+      4,
+    );
+    const guestHistoryId = await insertHistoryMatch(
+      db,
+      users.guest,
+      users.host,
+      "Host snapshot",
+      1,
+      4,
+    );
     await rpc(
       db,
       users.host,
@@ -909,6 +925,33 @@ Deno.test("account deletion closes rooms and removes report identity", async () 
     assert(
       /^[0-9A-F]{12}$/.test(inviteCode),
       "the test began with a valid invite code",
+    );
+
+    const deletedPlayerHistory = await db.query<{ count: number }>(
+      "select count(*)::integer as count from public.player_match_history where id = $1",
+      [hostHistoryId],
+    );
+    assertEquals(
+      deletedPlayerHistory.rows[0].count,
+      0,
+      "deleted player's own history is removed",
+    );
+    const retainedOpponentHistory = await db.query<{
+      opponent_user_id: string | null;
+      opponent_nickname: string;
+    }>(
+      "select opponent_user_id, opponent_nickname from public.player_match_history where id = $1",
+      [guestHistoryId],
+    );
+    assertEquals(
+      retainedOpponentHistory.rows[0].opponent_user_id,
+      null,
+      "remaining player's history no longer links the deleted account",
+    );
+    assertEquals(
+      retainedOpponentHistory.rows[0].opponent_nickname,
+      "已刪除玩家",
+      "remaining player's history uses the deletion label",
     );
 
     const report = await db.query<{
