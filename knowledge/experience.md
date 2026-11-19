@@ -18,6 +18,12 @@
 - **適用範圍：** 透過 GitHub Actions 將靜態檔案發布到 GitHub Pages。
 - **本專案做法：** push 到 `main` 或 `master` 時執行部署，並保留手動觸發入口。
 
+## GitHub Actions runner 執行環境警告
+
+- **經驗：** 部署 action 即使尚能執行，也可能先出現執行階段棄用警告；部署失敗時應查看失敗步驟的 annotation，再區分警告和真正錯誤，並參照官方 release 更新主要版本。
+- **適用範圍：** 使用 GitHub Actions 的網站部署與持續整合 workflow。
+- **本專案做法：** Pages workflow 從 checkout v4、configure-pages v5、upload-pages-artifact v3 和 deploy-pages v4 更新至查得的目前主要版本；首次失敗的實際原因是 Pages 在 workflow 啟動時尚未啟用。
+
 ## 即時遊戲狀態與答案保護
 
 - **經驗：** 靜態前端中的答案只適合展示原型；任何送到瀏覽器的程式與資料都能被玩家檢視。真人遊戲應由伺服器保管謎底並判定答案，伺服器也應作為計時與回合切換的權威來源。

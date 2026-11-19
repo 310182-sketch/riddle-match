@@ -46,6 +46,7 @@
 ### 4. 完善與上線
 
 - [x] 加入 GitHub Actions workflow，準備從 `site/` 部署到 GitHub Pages。
+- [x] 將 Pages workflow actions 更新至目前支援的主要版本。
 - [ ] 建立 GitHub repository 並推送網站原始碼。
 - [ ] 設定 GitHub Pages 使用 GitHub Actions，完成首次部署並確認網址。
 - [ ] 為 GitHub CLI 或 Git Credential Manager 建立安全的本機授權方式。
