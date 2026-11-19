@@ -30,7 +30,7 @@
         <section id="home" class="view home-view" data-view="home" aria-labelledby="home-title">
           <div class="hero-copy">
             <p class="eyebrow"><span class="sparkle" aria-hidden="true">✳</span> 二選一共同點遊戲</p>
-            <h1 id="home-title">從一個選擇，<br><span>發現一點相同。</span></h1>
+            <h1 id="home-title" tabindex="-1" data-focus-target>從一個選擇，<br><span>發現一點相同。</span></h1>
             <p class="hero-description">和一位陌生人配對，回答同一個主題的小問題。<br class="desktop-break">每題答完就揭曉，看看你們在哪些地方很有默契。</p>
             <div class="hero-note"><span aria-hidden="true">✦</span> 不用註冊，先玩一局看看</div>
 
@@ -75,7 +75,7 @@
         <section id="matching" class="view matching-view hidden" data-view="matching" aria-live="polite">
           <div class="match-orbit" aria-hidden="true"><span class="orbit orbit-one"></span><span class="orbit orbit-two"></span><span class="match-center">同</span><span class="orbit-dot dot-a">✦</span><span class="orbit-dot dot-b">?</span></div>
           <p class="eyebrow centered-eyebrow"><span class="pulse-dot" aria-hidden="true"></span> 正在為你配對</p>
-          <h2>一個好問題，<br><span>從一位新朋友開始。</span></h2>
+          <h2 tabindex="-1" data-focus-target>一個好問題，<br><span>從一位新朋友開始。</span></h2>
           <p class="match-subtitle">本局主題：<b data-match-topic>旅行</b></p>
           <div class="match-progress" aria-hidden="true"><span></span></div>
           <p class="match-caption">正在尋找想玩同一主題的人…</p>
@@ -104,7 +104,7 @@
               </div>
               <div class="question-area">
                 <p class="question-kicker">兩個選項，選一個最像你的</p>
-                <h1 id="game-title" class="game-question" data-question tabindex="-1">旅行時，你更喜歡哪一種安排？</h1>
+                <h1 id="game-title" class="game-question" data-question data-focus-target tabindex="-1">旅行時，你更喜歡哪一種安排？</h1>
                 <p class="question-instruction">先選你的答案，等雙方都答完再揭曉。</p>
                 <div class="answer-options" role="group" aria-label="選擇你的答案">
                   <button class="answer-option" type="button" data-option="0"><span class="option-letter">A</span><span class="option-copy" data-option-copy="0">先規劃好行程</span><span class="option-check" aria-hidden="true">✓</span></button>
@@ -138,7 +138,7 @@
         <section id="results" class="view results-view hidden" data-view="results" aria-labelledby="result-title">
           <div class="result-mark" aria-hidden="true">✦</div>
           <p class="eyebrow centered-eyebrow">這一局的小發現</p>
-          <h1 id="result-title">你們有 <span data-result-score>0</span> 題選得一樣。</h1>
+          <h1 id="result-title" data-focus-target tabindex="-1">你們有 <span data-result-score>0</span> 題選得一樣。</h1>
           <p class="result-copy" data-result-copy>每個相同的選擇，都是認識彼此的一個小線索。</p>
           <div class="result-card">
             <div class="result-card-heading"><b>你們的共同選擇</b><span data-result-topic>旅行</span></div>

@@ -47,13 +47,19 @@
   const modal = $("[data-modal]");
   const toast = $("[data-toast]");
 
-  function showView(name) {
+  function showView(name, moveFocus = false) {
+    let activeView = null;
     views.forEach((view) => {
       const visible = view.dataset.view === name;
       view.classList.toggle("hidden", !visible);
       view.setAttribute("aria-hidden", String(!visible));
+      if (visible) activeView = view;
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
+    const focusTarget = activeView && activeView.querySelector("[data-focus-target]");
+    if (moveFocus && focusTarget) {
+      window.requestAnimationFrame(() => focusTarget.focus({ preventScroll: true }));
+    }
   }
 
   function chooseTopic() {
@@ -73,10 +79,10 @@
     state.nickname = ($("#nickname").value.trim() || "小星").slice(0, 12);
     chooseTopic();
     $("[data-match-topic]").textContent = state.topic;
-    showView("matching");
+    showView("matching", true);
     state.matchTimer = window.setTimeout(() => {
       renderQuestion();
-      showView("game");
+      showView("game", true);
     }, 900);
   }
 
@@ -155,7 +161,7 @@
     });
     $("[data-empty-result]").classList.toggle("hidden", matchedIndexes.length > 0);
     list.classList.toggle("hidden", matchedIndexes.length === 0);
-    showView("results");
+    showView("results", true);
   }
 
   function announce(message) {
@@ -200,7 +206,7 @@
 
   $("[data-cancel]").addEventListener("click", () => {
     window.clearTimeout(state.matchTimer);
-    showView("home");
+    showView("home", true);
     announce("已取消配對");
   });
 
@@ -208,7 +214,7 @@
     button.addEventListener("click", (event) => {
       if (button.tagName === "A") event.preventDefault();
       window.clearTimeout(state.matchTimer);
-      showView("home");
+      showView("home", true);
     });
   });
 
