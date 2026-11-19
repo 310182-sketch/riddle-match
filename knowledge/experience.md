@@ -209,4 +209,4 @@
 
 - **經驗：** 配對狀態輪詢尚未返回時若直接忽略取消，玩家在短暫網路延遲期間會按了取消卻留在佇列。應先記錄取消意圖、讓畫面顯示正在取消，待目前 RPC 完成後再送出取消；若狀態先確認已配對，則以伺服器狀態進入房間。取消回應可能只有 `matched` 而沒有 `room_id`，此時要再查詢狀態取得完整房間資料。
 - **適用範圍：** 有輪詢狀態且可被使用者取消的配對、工作佇列或長時間網路操作。
-- **本專案做法：** `finishMatchmakingRequest` 在狀態 RPC 結束時釋放忙碌狀態並送出待處理的取消；配對確認先發生時會停止取消並進房。`scripts/matchmaking-cancel-race.mjs` 用 headless Chrome 和可控的 mock RPC，驗證輪詢等待期間按取消、輪詢回報仍等待、取消回報已配對但無房間 ID、再查到房間並顯示真人遊戲頁。這驗證瀏覽器端的請求順序與畫面路由，不取代 PostgreSQL 鎖競態、Supabase Auth 或跨裝置實測。
+- **本專案做法：** `finishMatchmakingRequest` 在狀態 RPC 結束時釋放忙碌狀態並送出待處理的取消；配對確認先發生時會停止取消並進房。`scripts/matchmaking-cancel-race.mjs` 用 headless Chrome 和可控的 mock RPC，驗證輪詢等待期間按取消、輪詢回報仍等待、取消回報已配對但無房間 ID、再查到房間並顯示真人遊戲頁。測試結束時模擬登出，清除仍在運作的房間輪詢，避免 headless browser 被背景計時器卡住。這驗證瀏覽器端的請求順序與畫面路由，不取代 PostgreSQL 鎖競態、Supabase Auth 或跨裝置實測。

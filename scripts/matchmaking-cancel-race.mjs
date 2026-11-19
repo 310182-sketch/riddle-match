@@ -31,6 +31,7 @@ const mockClient = String.raw`
           return {
             auth: {
               onAuthStateChange(callback) {
+                matchTest.authCallback = callback;
                 window.setTimeout(() => {
                   matchTest.authReady = true;
                   callback("SIGNED_IN", session);
@@ -108,7 +109,8 @@ const mockClient = String.raw`
                 subscribe() { return this; },
                 unsubscribe() { return Promise.resolve("ok"); }
               };
-            }
+            },
+            removeChannel() { return Promise.resolve("ok"); }
           };
         }
       };
@@ -156,6 +158,7 @@ const browserTest = String.raw`
         if (cancelCall < 0 || roomPoll < 0 || cancelCall > roomPoll) {
           throw new Error("the room status was not rechecked after the cancellation response");
         }
+        window.__matchTest.authCallback("SIGNED_OUT", null);
         document.documentElement.setAttribute("data-matchmaking-race", "passed");
         output.textContent = "PASS: queued cancel survived a pending status poll and matched response without room_id.";
       })().catch((error) => fail(error?.message || String(error)));
