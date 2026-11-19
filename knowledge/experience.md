@@ -22,7 +22,7 @@
 
 - **經驗：** Pages Actions 需要 pages: write 與 id-token: write 權限，repository 的 Pages source 也必須設為 GitHub Actions。
 - **適用範圍：** 使用 GitHub Actions 發布 GitHub Pages 網站。
-- **本專案做法：** workflow 已存在且可由功能分支觸發，但 `github-pages` environment 的分支保護規則曾拒絕部署。部署失敗時先看實際失敗步驟與 annotation；runner 棄用警告和真正的部署錯誤要分開處理，也不能只憑 workflow 觸發就宣稱網站已發布。
+- **本專案做法：** workflow 已由功能分支觸發；`github-pages` environment 曾拒絕未列入允許清單的分支，加入精確分支政策後部署成功。現在 `verify` job 先執行 Deno 型別／lint／格式、PGlite migration 測試、Edge Function request 測試和前端語法檢查；`deploy` 以 `needs: verify` 等待檢查，並獨立取得 `pages: write` 與 `id-token: write`。部署失敗時先看實際失敗步驟與 annotation；runner 棄用警告和真正的部署錯誤要分開處理，也不能只憑 workflow 觸發就宣稱網站已發布。
 
 ## 靜態前端不可放伺服器祕密
 
