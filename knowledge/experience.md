@@ -22,7 +22,7 @@
 
 - **經驗：** Pages Actions 需要 pages: write 與 id-token: write 權限，repository 的 Pages source 也必須設為 GitHub Actions。
 - **適用範圍：** 使用 GitHub Actions 發布 GitHub Pages 網站。
-- **本專案做法：** workflow 已由功能分支觸發；`github-pages` environment 曾拒絕未列入允許清單的分支，加入精確分支政策後部署成功。現在 `verify` job 先執行 Deno 型別／lint／格式、PGlite migration 測試、Edge Function request 測試和前端語法檢查；`deploy` 以 `needs: verify` 等待檢查，並獨立取得 `pages: write` 與 `id-token: write`。部署失敗時先看實際失敗步驟與 annotation；runner 棄用警告和真正的部署錯誤要分開處理，也不能只憑 workflow 觸發就宣稱網站已發布。最新已驗證的 run 32 兩個 job 均成功。
+- **本專案做法：** workflow 已由功能分支觸發；`github-pages` environment 曾拒絕未列入允許清單的分支，加入精確分支政策後部署成功。現在 `verify` job 先執行 Deno 型別／lint／格式、PGlite migration 測試、Edge Function request 測試和前端語法檢查；`deploy` 以 `needs: verify` 等待檢查，並獨立取得 `pages: write` 與 `id-token: write`。部署失敗時先看實際失敗步驟與 annotation；runner 棄用警告和真正的部署錯誤要分開處理，也不能只憑 workflow 已觸發或排入佇列就宣稱網站已發布。最新功能提交的 run 33 兩個 job 均成功。
 
 ## 靜態前端不可放伺服器祕密
 
@@ -82,7 +82,7 @@
 
 - **經驗：** GitHub Actions 可以因 push 正常觸發，仍在部署步驟開始前被環境保護規則拒絕。此時先讀取 Actions check-run annotations，確認分支是否列在部署環境的允許清單，再判斷是否要修改 workflow。
 - **適用範圍：** 透過 GitHub Pages environment 或其他有分支保護規則的 GitHub Actions 部署。
-- **本專案做法：** 初始部署因分支不在 `github-pages` environment 的允許清單而失敗。確認現有規則包含 `main` 且使用自訂分支清單後，只新增 `codex/commonality-quiz-prototype`，保留 `main` 和其他 environment 保護，再重跑 workflow；run 28 attempt 2 成功，並以公開網址 HTTP 200 和頁面標題確認部署內容。後續將 Deno／PGlite、Edge Function 和前端檢查放在不具 Pages 寫入權限的 `verify` job，`deploy` 只在其成功後取得部署權限；run 32 在 GitHub runner 上通過兩個 jobs。不要只根據 workflow 已觸發或排入佇列就將網站標成已發布。
+- **本專案做法：** 初始部署因分支不在 `github-pages` environment 的允許清單而失敗。確認現有規則包含 `main` 且使用自訂分支清單後，只新增 `codex/commonality-quiz-prototype`，保留 `main` 和其他 environment 保護，再重跑 workflow；run 28 attempt 2 成功，並以公開網址 HTTP 200 和頁面標題確認部署內容。後續將 Deno／PGlite、Edge Function 和前端檢查放在不具 Pages 寫入權限的 `verify` job，`deploy` 只在其成功後取得部署權限；run 33 在 GitHub runner 上通過兩個 jobs。不要只根據 workflow 已觸發或排入佇列就將網站標成已發布。
 
 ## 手機上的選項要留足點按空間，選取狀態不需雙重描邊
 
