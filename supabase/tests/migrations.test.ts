@@ -628,6 +628,104 @@ Deno.test("history cursor and commonality ranking enforce their time and match l
   }
 });
 
+Deno.test("history RPCs only expose and delete the authenticated player's records", async () => {
+  const db = await createDatabase();
+  try {
+    await insertUsers(db);
+    const hostHistoryId = await insertHistoryMatch(
+      db,
+      users.host,
+      users.guest,
+      "Guest",
+      1,
+      4,
+    );
+    const guestHistoryId = await insertHistoryMatch(
+      db,
+      users.guest,
+      users.host,
+      "Host",
+      1,
+      4,
+    );
+
+    const hostHistory = await rpc(
+      db,
+      users.host,
+      "select public.get_my_match_history() as response",
+    );
+    const hostItems = hostHistory.items as JsonObject[];
+    assertEquals(hostItems.length, 1, "host receives only one personal record");
+    assertEquals(
+      hostItems[0].id,
+      hostHistoryId,
+      "host receives own history row",
+    );
+
+    const unauthorizedDelete = await withUser(
+      db,
+      users.host,
+      async () => {
+        const result = await db.query<{ response: boolean }>(
+          "select public.delete_my_match_history($1::uuid) as response",
+          [guestHistoryId],
+        );
+        return result.rows[0].response;
+      },
+    );
+    assertEquals(
+      unauthorizedDelete,
+      false,
+      "host cannot delete the guest's history row",
+    );
+
+    const stillPresent = await rpc(
+      db,
+      users.guest,
+      "select public.get_my_match_history() as response",
+    );
+    const guestItems = stillPresent.items as JsonObject[];
+    assertEquals(
+      guestItems.length,
+      1,
+      "guest's history remains after rejected delete",
+    );
+    assertEquals(guestItems[0].id, guestHistoryId, "guest retains own row");
+
+    const ownDelete = await withUser(db, users.host, async () => {
+      const result = await db.query<{ response: boolean }>(
+        "select public.delete_my_match_history($1::uuid) as response",
+        [hostHistoryId],
+      );
+      return result.rows[0].response;
+    });
+    assertEquals(ownDelete, true, "host can delete own history row");
+
+    const repeatedDelete = await withUser(db, users.host, async () => {
+      const result = await db.query<{ response: boolean }>(
+        "select public.delete_my_match_history($1::uuid) as response",
+        [hostHistoryId],
+      );
+      return result.rows[0].response;
+    });
+    assertEquals(
+      repeatedDelete,
+      false,
+      "deleting the same row twice is harmless",
+    );
+
+    await assertRejects(
+      () =>
+        withUser(db, "", async () => {
+          await db.query("select public.get_my_match_history() as response");
+        }),
+      "Authentication required",
+    );
+  } finally {
+    await db.close();
+  }
+});
+
 Deno.test("retention jobs purge expired data and keep unexpired records", async () => {
   const db = await createDatabase();
   try {
