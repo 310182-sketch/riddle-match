@@ -27,9 +27,12 @@
   let currentNickname = "";
   let currentRoom;
   let roomChannel;
+  let roomRevision = 0;
+  let leavingRoom = false;
   let loadedRound = null;
   let latestStatusKey = "";
   let revealedRounds = new Set();
+  let timeoutRetryAt = new Map();
   let seenMessages = new Set();
 
   function showView(name) {
@@ -53,7 +56,8 @@
   }
 
   function renderMessage(message) {
-    if (!message?.id || seenMessages.has(message.id)) return;
+    if (!message?.id || !currentRoom || message.room_id !== currentRoom.id ||
+        message.round_number !== currentRoom.round_number || seenMessages.has(message.id)) return;
     seenMessages.add(message.id);
     const mine = message.sender_id === authUser.id;
     const name = mine ? "你" : (currentRoom?.player_one_id === message.sender_id
@@ -84,6 +88,7 @@
       .eq("round_number", roundNumber)
       .order("created_at", { ascending: true })
       .order("id", { ascending: true });
+    if (currentRoom?.id !== roomId || currentRoom.round_number !== roundNumber) return;
     if (error) {
       flash("無法載入聊天室訊息，請稍後重試。");
       console.error(error);
@@ -101,6 +106,13 @@
     timerId = undefined;
   }
 
+  async function syncChangedRound(error, roomId) {
+    if (!error?.message?.includes("round_changed")) return false;
+    flash("回合已更新，正在同步最新狀態。");
+    await refreshRoom(roomId);
+    return true;
+  }
+
   function startTimer(room) {
     stopTimer();
     const output = document.querySelector("[data-timer]");
@@ -109,34 +121,41 @@
       return;
     }
     const tick = async () => {
+      if (currentRoom?.id !== room.id || currentRoom.round_number !== room.round_number ||
+          currentRoom.status !== "active") return;
       const milliseconds = Date.parse(room.expires_at) - Date.now();
       const seconds = Math.max(0, Math.ceil(milliseconds / 1000));
       output.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
       if (seconds === 0) {
-        stopTimer();
         await revealTimeout(room.id, room.round_number);
       }
     };
-    tick();
     timerId = setInterval(tick, 1000);
+    tick();
   }
 
   async function revealTimeout(roomId, roundNumber) {
     const key = `${roomId}:${roundNumber}`;
-    if (revealedRounds.has(key)) return;
+    if (revealedRounds.has(key) || Date.now() < (timeoutRetryAt.get(key) || 0)) return;
     revealedRounds.add(key);
-    const { data, error } = await client.rpc("end_expired_round", { p_room_id: roomId });
+    const { data, error } = await client.rpc("end_expired_round", { p_room_id: roomId, p_round_number: roundNumber });
+    if (currentRoom?.id !== roomId || currentRoom.round_number !== roundNumber) return;
     if (error) {
       revealedRounds.delete(key);
+      timeoutRetryAt.set(key, Date.now() + 5000);
+      if (await syncChangedRound(error, roomId)) return;
       console.error(error);
-      flash("確認回合時間時發生問題，正在重新同步。");
-      await refreshRoom(roomId);
+      flash("確認回合時間時發生問題，稍後會再試。");
       return;
     }
     if (data?.state === "timed_out" && data.answer) {
       addSystem(`時間到囉！這題的答案是「${data.answer}」。`);
     }
-    if (data?.state === "active") revealedRounds.delete(key);
+    if (data?.state === "active") {
+      revealedRounds.delete(key);
+      timeoutRetryAt.set(key, Date.now() + 5000);
+      return;
+    }
     await refreshRoom(roomId);
   }
 
@@ -149,13 +168,18 @@
     button.textContent = "交換角色，開始下一輪 ↗";
     button.style.cssText = "margin: 11px auto 0; display:flex; height:38px; min-width:0; font-size:9px; justify-content:center;";
     button.addEventListener("click", async () => {
+      if (!currentRoom || leavingRoom) return;
+      const roomId = currentRoom.id;
+      const roundNumber = currentRoom.round_number;
       button.disabled = true;
-      const { error } = await client.rpc("start_next_round", { p_room_id: currentRoom.id });
+      const { error } = await client.rpc("start_next_round", { p_room_id: roomId, p_round_number: roundNumber });
+      if (currentRoom?.id !== roomId || currentRoom.round_number !== roundNumber) return;
       if (error) {
         button.disabled = false;
+        if (await syncChangedRound(error, roomId)) return;
         flash("目前無法開始下一輪，請等房間狀態同步後再試。");
         console.error(error);
-      }
+      } else await refreshRoom(roomId);
     });
     document.querySelector(".composer-area").append(button);
   }
@@ -173,6 +197,13 @@
 
   function applyRoom(room) {
     if (!room || room.id !== currentRoom?.id) return;
+    // A query or delayed event must not restore an earlier round or phase.
+    const statusOrder = { waiting_setter: 0, active: 1, solved: 2, timed_out: 2, abandoned: 3 };
+    if (room.round_number < currentRoom.round_number ||
+        (room.round_number === currentRoom.round_number &&
+          ((statusOrder[room.status] ?? -1) < (statusOrder[currentRoom.status] ?? -1) ||
+           (currentRoom.hint_used && !room.hint_used)))) return;
+    roomRevision += 1;
     const newRound = loadedRound !== room.round_number;
     currentRoom = room;
     const role = currentRole(room);
@@ -182,6 +213,11 @@
       loadedRound = room.round_number;
       seenMessages = new Set();
       chat.replaceChildren();
+      chatForm.elements.message.value = "";
+      guessForm.elements.answer.value = "";
+      setterForm.elements.riddle.value = "";
+      setterForm.elements.answer.value = "";
+      setterForm.elements.hint.value = "";
       if (room.round_number === 1) addSystem("配對成功！保持友善，祝你們玩得開心。");
       else addSystem("新一輪開始囉，雙方已交換角色。");
       loadMessages(room.id, room.round_number);
@@ -236,26 +272,33 @@
     }
 
     if (room.status === "active") startTimer(room);
-    else stopTimer();
+    else {
+      stopTimer();
+      if (room.status === "waiting_setter") document.querySelector("[data-timer]").textContent = "05:00";
+    }
     if (room.status === "timed_out") revealTimeout(room.id, room.round_number);
   }
 
   async function refreshRoom(roomId) {
+    const revision = roomRevision;
     const { data, error } = await client.from("match_rooms").select("*").eq("id", roomId).single();
+    if (currentRoom?.id !== roomId || roomRevision !== revision) return;
     if (error) {
       console.error(error);
+      flash("無法同步房間，請檢查連線後再試。");
       return;
     }
     applyRoom(data);
   }
 
-  async function openRoom(roomId) {
+  async function openRoom(roomId, epoch) {
     const { data, error } = await client.from("match_rooms").select("*").eq("id", roomId).single();
+    if (epoch !== matchmakingEpoch) return false;
     if (error) {
       console.error(error);
       flash("配對成功，但無法載入房間。請重新整理後再試。");
       showView("home");
-      return;
+      return false;
     }
 
     currentRoom = data;
@@ -263,6 +306,7 @@
     latestStatusKey = "";
     seenMessages = new Set();
     revealedRounds = new Set();
+    timeoutRetryAt = new Map();
     chat.replaceChildren();
     showView("game");
     applyRoom(data);
@@ -277,13 +321,20 @@
         if (payload.new.round_number === currentRoom?.round_number) renderMessage(payload.new);
       })
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") loadMessages(roomId, currentRoom?.round_number);
+        if (currentRoom?.id !== roomId) return;
+        if (status === "SUBSCRIBED") {
+          // Realtime can miss updates while disconnected; reread both state and messages.
+          refreshRoom(roomId).then(() => {
+            if (currentRoom?.id === roomId) loadMessages(roomId, currentRoom.round_number);
+          });
+        }
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           flash("即時同步中斷，請檢查網路連線。");
         }
       });
 
     if (data.status === "timed_out") revealTimeout(data.id, data.round_number);
+    return true;
   }
 
   async function pollMatchmaking(epoch) {
@@ -293,17 +344,14 @@
       const { data, error } = await client.rpc("join_matchmaking", { p_nickname: currentNickname });
       if (error) throw error;
       if (epoch !== matchmakingEpoch) {
-        if (cancelInProgress && data?.state === "matched") {
-          await client.rpc("leave_room", { p_room_id: data.room_id });
-        }
         return;
       }
       if (data?.state === "matched") {
-        matchmakingEpoch += 1;
         clearInterval(matchmakingTimer);
         matchmakingTimer = undefined;
         document.querySelector("[data-match-caption]").textContent = "找到謎友了，正在準備房間…";
-        await openRoom(data.room_id);
+        const opened = await openRoom(data.room_id, epoch);
+        if (opened && epoch === matchmakingEpoch) matchmakingEpoch += 1;
       } else {
         document.querySelector("[data-match-caption]").textContent = "正在尋找一起猜謎的新朋友…";
       }
@@ -340,54 +388,74 @@
   }
 
   async function cancelMatchmaking() {
+    if (cancelInProgress) return;
     cancelInProgress = true;
     matchmakingEpoch += 1;
     clearInterval(matchmakingTimer);
     matchmakingTimer = undefined;
-    while (matchmakingBusy) await new Promise((resolve) => setTimeout(resolve, 25));
-    const { error } = await client.rpc("cancel_matchmaking");
-    if (error) {
+    const cancelButton = document.querySelector("[data-cancel]");
+    cancelButton.disabled = true;
+    document.querySelector("[data-continue]").classList.add("hidden");
+    document.querySelector("[data-match-caption]").textContent = "正在取消配對，請稍候…";
+    try {
+      // Wait for any in-flight join before cancelling, so a late join cannot requeue us.
+      while (matchmakingBusy) await new Promise((resolve) => setTimeout(resolve, 25));
+      const { error } = await client.rpc("cancel_matchmaking");
+      if (error) throw error;
+      showView("home");
+    } catch (error) {
       console.error(error);
+      document.querySelector("[data-match-caption]").textContent = "取消配對遇到問題，請檢查連線後再試。";
+      flash("無法確認取消配對，請再試一次。");
+    } finally {
       cancelInProgress = false;
-      flash("取消配對時發生問題，正在重新嘗試配對。");
-      startMatchmaking(currentNickname);
-      return;
+      cancelButton.disabled = false;
     }
-    cancelInProgress = false;
-    showView("home");
   }
 
   async function sendChat(text) {
     const value = text.trim();
-    if (!value || !currentRoom || !["waiting_setter", "active"].includes(currentRoom.status)) return;
+    if (!value || !currentRoom || leavingRoom || !["waiting_setter", "active"].includes(currentRoom.status)) return false;
+    const { id: roomId, round_number: roundNumber } = currentRoom;
     const { data, error } = await client.from("room_messages").insert({
-      room_id: currentRoom.id,
-      round_number: currentRoom.round_number,
+      room_id: roomId,
+      round_number: roundNumber,
       sender_id: authUser.id,
       body: value,
     }).select("id, room_id, round_number, sender_id, body, created_at").single();
+    if (currentRoom?.id !== roomId || currentRoom.round_number !== roundNumber) return false;
     if (error) {
       console.error(error);
       flash("訊息沒有送出，請檢查連線後再試。");
-      return;
+      return false;
     }
     renderMessage(data);
+    return true;
   }
 
   async function returnHome() {
+    if (leavingRoom) return;
     const room = currentRoom;
+    if (!room) return;
+    leavingRoom = true;
+    try {
+      const { error } = await client.rpc("leave_room", { p_room_id: room.id });
+      if (error) throw error;
+    } catch (error) {
+      console.error(error);
+      flash("目前無法離開房間，請檢查連線後再試。");
+      leavingRoom = false;
+      return;
+    }
     stopTimer();
-    if (room) {
-      await client.rpc("leave_room", { p_room_id: room.id });
-    }
-    if (roomChannel) {
-      await client.removeChannel(roomChannel);
-      roomChannel = undefined;
-    }
+    const channel = roomChannel;
+    roomChannel = undefined;
     currentRoom = undefined;
     loadedRound = null;
     latestStatusKey = "";
+    leavingRoom = false;
     showView("home");
+    if (channel) Promise.resolve(client.removeChannel(channel)).catch(console.error);
   }
 
   function bindEvents() {
@@ -406,8 +474,8 @@
     });
     document.querySelectorAll("[data-home]").forEach((button) => button.addEventListener("click", (event) => {
       event.preventDefault();
-      if (currentRoom) returnHome();
-      else if (!views.matching.classList.contains("hidden")) cancelMatchmaking();
+      if (currentRoom) return returnHome();
+      else if (!views.matching.classList.contains("hidden")) return cancelMatchmaking();
       else showView("home");
     }));
     document.querySelectorAll("[data-show-help]").forEach((button) => button.addEventListener("click", () => document.querySelector("[data-modal]").showModal()));
@@ -418,21 +486,24 @@
       event.preventDefault();
       const field = chatForm.elements.message;
       const value = field.value;
-      field.value = "";
-      await sendChat(value);
+      if (await sendChat(value) && field.value === value) field.value = "";
     });
     setterForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (!currentRoom) return;
+      if (!currentRoom || leavingRoom) return;
+      const { id: roomId, round_number: roundNumber } = currentRoom;
       const fields = setterForm.elements;
       const { error } = await client.rpc("submit_riddle", {
-        p_room_id: currentRoom.id,
+        p_room_id: roomId,
+        p_round_number: roundNumber,
         p_riddle: fields.riddle.value.trim(),
         p_answer: fields.answer.value.trim(),
         p_hint: fields.hint.value.trim(),
         p_accepted_answers: [],
       });
+      if (currentRoom?.id !== roomId || currentRoom.round_number !== roundNumber) return;
       if (error) {
+        if (await syncChangedRound(error, roomId)) return;
         console.error(error);
         flash("謎題沒有送出，請確認欄位後再試。");
         return;
@@ -440,36 +511,47 @@
       fields.riddle.value = "";
       fields.answer.value = "";
       fields.hint.value = "";
+      await refreshRoom(roomId);
     });
     guessForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (!currentRoom) return;
+      if (!currentRoom || leavingRoom) return;
+      const { id: roomId, round_number: roundNumber } = currentRoom;
       const field = guessForm.elements.answer;
-      const value = field.value.trim();
+      const originalValue = field.value;
+      const value = originalValue.trim();
       if (!value) return;
       await sendChat(`我猜是「${value}」！`);
-      const { data, error } = await client.rpc("submit_guess", { p_room_id: currentRoom.id, p_guess: value });
-      field.value = "";
+      if (currentRoom?.id !== roomId || currentRoom.round_number !== roundNumber) return;
+      const { data, error } = await client.rpc("submit_guess", { p_room_id: roomId, p_guess: value, p_round_number: roundNumber });
+      if (currentRoom?.id !== roomId || currentRoom.round_number !== roundNumber) return;
       if (error) {
+        if (await syncChangedRound(error, roomId)) return;
         console.error(error);
         flash("答案沒有送出，請稍後再試。");
-      } else if (data?.state === "timed_out" && data.answer) {
+        return;
+      }
+      if (field.value === originalValue) field.value = "";
+      if (data?.state === "timed_out" && data.answer) {
         addSystem(`時間到囉！這題的答案是「${data.answer}」。`);
-        await refreshRoom(currentRoom.id);
+        await refreshRoom(roomId);
       } else if (data?.correct === false) {
         flash("還差一點點，可以再問問題或猜一次。");
-      }
+      } else if (data?.correct === true) await refreshRoom(roomId);
     });
     hintButton.addEventListener("click", async () => {
-      if (!currentRoom) return;
-      const { data, error } = await client.rpc("request_room_hint", { p_room_id: currentRoom.id });
+      if (!currentRoom || leavingRoom) return;
+      const { id: roomId, round_number: roundNumber } = currentRoom;
+      const { data, error } = await client.rpc("request_room_hint", { p_room_id: roomId, p_round_number: roundNumber });
+      if (currentRoom?.id !== roomId || currentRoom.round_number !== roundNumber) return;
       if (error) {
+        if (await syncChangedRound(error, roomId)) return;
         console.error(error);
         flash(error.message?.includes("hint_already_used") ? "這個提示已經看過囉，再想想看！" : "目前無法取得提示。");
         return;
       }
       if (data) addSystem(`給你一點提示：${data}`);
-      else await refreshRoom(currentRoom.id);
+      await refreshRoom(roomId);
     });
     reportButton.disabled = true;
     reportButton.title = "玩家安全回報功能尚未上線";

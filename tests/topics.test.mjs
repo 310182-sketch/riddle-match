@@ -1,19 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 
 test("展示版與配對、換輪使用相同的 12 個主題", async () => {
   const demo = await readFile(new URL("../site/app.js", import.meta.url), "utf8");
-  const migration = await readFile(new URL("../supabase/migrations/20261126000000_initial_realtime_game.sql", import.meta.url), "utf8");
+  const migrationDir = new URL("../supabase/migrations/", import.meta.url);
   const first = demo.match(/const initialTopic\s*=\s*\{\s*topic:\s*"([^"]+)"/);
   const examples = demo.match(/const topics\s*=\s*\[([\s\S]*?)\n\s*\];/);
   assert.ok(first && examples, "找不到展示版主題庫");
   const demoTopics = [first[1], ...Array.from(examples[1].matchAll(/\btopic:\s*"([^"]+)"/g), match => match[1])];
-  const serverLists = Array.from(migration.matchAll(/v_topics\s+text\[\]\s*:=\s*array\[([\s\S]*?)\];/g), match =>
-    Array.from(match[1].matchAll(/'([^']+)'/g), topic => topic[1]));
+  const serverLists = new Map();
+  for (const file of (await readdir(migrationDir)).filter(name => name.endsWith(".sql")).sort()) {
+    const migration = await readFile(new URL(file, migrationDir), "utf8");
+    for (const match of migration.matchAll(/create(?:\s+or\s+replace)?\s+function\s+public\.(join_matchmaking|start_next_round)\s*\([\s\S]*?\$\$([\s\S]*?)\$\$;/gi)) {
+      const topics = match[2].match(/v_topics\s+text\[\]\s*:=\s*array\[([\s\S]*?)\];/);
+      assert.ok(topics, `${file} 的 ${match[1]} 缺少主題清單`);
+      serverLists.set(match[1].toLowerCase(), Array.from(topics[1].matchAll(/'([^']+)'/g), topic => topic[1]));
+    }
+  }
 
   assert.equal(demoTopics.length, 12);
   assert.equal(new Set(demoTopics).size, demoTopics.length, "主題不可重複");
-  assert.equal(serverLists.length, 2, "須檢查配對及換輪的主題庫");
-  for (const list of serverLists) assert.deepEqual(list, demoTopics);
+  assert.deepEqual([...serverLists.keys()].sort(), ["join_matchmaking", "start_next_round"], "須檢查配對及換輪的最新主題庫");
+  for (const list of serverLists.values()) assert.deepEqual(list, demoTopics);
 });
