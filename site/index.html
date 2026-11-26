@@ -20,7 +20,7 @@
           <span>謎友<span class="brand-dot">.</span></span>
         </a>
         <div class="topbar-right">
-          <span class="demo-pill"><span class="pulse-dot"></span>互動展示版</span>
+          <span class="demo-pill" data-mode-label><span class="pulse-dot"></span>互動展示版</span>
           <button class="icon-button" type="button" aria-label="遊戲說明" data-show-help>?</button>
         </div>
       </header>
@@ -63,7 +63,8 @@
           <h2>好問題，值得<br><span>和新朋友分享。</span></h2>
           <p class="match-subtitle">準備一點好奇心就好</p>
           <div class="match-progress"><span></span></div>
-          <p class="match-caption">正在抽取今天的主題…</p>
+          <p class="match-caption" data-match-caption>正在抽取今天的主題…</p>
+          <button class="text-button hidden" type="button" data-continue>繼續等待</button>
           <button class="text-button" type="button" data-cancel>先等等，返回首頁</button>
         </section>
 
@@ -87,6 +88,7 @@
                   <div class="setter-fields">
                     <label class="sr-only" for="setter-riddle">輸入你出的謎題</label><input id="setter-riddle" name="riddle" type="text" maxlength="180" autocomplete="off" placeholder="寫一個符合主題的謎題…" required>
                     <label class="sr-only" for="setter-answer">輸入正確答案</label><input id="setter-answer" name="answer" type="text" maxlength="80" autocomplete="off" placeholder="正確答案" required>
+                    <label class="sr-only" for="setter-hint">輸入本輪提示</label><input id="setter-hint" name="hint" type="text" maxlength="180" autocomplete="off" placeholder="猜題者可索取一次的提示">
                   </div>
                   <button class="guess-button" type="submit">送出謎題 <span aria-hidden="true">↗</span></button>
                 </form>
@@ -109,6 +111,19 @@
       <footer class="site-footer"><span>謎友 © 2026</span><span class="footer-message">多一個問題，多認識一個世界 <span>✦</span></span><button type="button" data-show-help>遊戲說明</button></footer>
     </div>
 
+    <dialog class="modal" data-nickname-modal aria-labelledby="nickname-title">
+      <button class="modal-close" type="button" data-close-nickname aria-label="關閉">×</button>
+      <span class="modal-mark">謎</span>
+      <p class="eyebrow centered-eyebrow">MEET A RIDDLE FRIEND</p>
+      <h2 id="nickname-title">先取一個暱稱</h2>
+      <p class="modal-copy">使用一次性暱稱加入配對，不需要提供真實姓名。</p>
+      <form class="nickname-form" data-nickname-form>
+        <label for="nickname-input">遊戲暱稱</label>
+        <input id="nickname-input" name="nickname" type="text" minlength="1" maxlength="24" autocomplete="nickname" required placeholder="例如：好奇的小島">
+        <button class="primary-button modal-action" type="submit">開始尋找 <span class="button-arrow">↗</span></button>
+      </form>
+    </dialog>
+
     <dialog class="modal" data-modal aria-labelledby="modal-title">
       <button class="modal-close" type="button" data-close-modal aria-label="關閉">×</button>
       <span class="modal-mark">謎</span>
@@ -118,6 +133,7 @@
       <button class="primary-button modal-action" type="button" data-close-modal>知道了 <span class="button-arrow">↗</span></button>
     </dialog>
     <div class="toast" data-toast role="status" aria-live="polite"></div>
-    <script src="app.js"></script>
+    <script src="supabase-config.js"></script>
+    <script src="boot.js"></script>
   </body>
 </html>

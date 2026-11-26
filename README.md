@@ -4,7 +4,11 @@
 
 ## 目前版本
 
-這是可部署到 GitHub Pages 的前端展示原型，包含角色抽選、主題、自由提問、提示、答案提交、五分鐘倒數和換角流程。配對對象、對話和答案判定由瀏覽器內的示範流程模擬；不同訪客目前不會進入同一個遊戲房間。
+這是可部署到 GitHub Pages 的前端展示原型，包含主題、自由提問、提示、答案提交、五分鐘倒數和換角流程。未設定 Supabase 時，配對對象、對話和答案判定由瀏覽器內的示範流程模擬；不同訪客不會進入同一個遊戲房間。
+
+## 真人配對後端（尚未啟用）
+
+Repository 已包含 Supabase 資料庫遷移及選用的真人配對前端。要啟用真人模式，請先依 `supabase/README.md` 建立 Supabase project、啟用匿名登入並套用遷移，再將 project URL 和公開用戶端 key 填入 `site/supabase-config.js`。該設定檔會公開給所有網站訪客，請勿放入 service-role key 或其他祕密。設定未完成時網站會繼續載入展示版。
 
 產品規劃與實作經驗記錄在 `knowledge/plan.md`、`knowledge/experience.md` 和 `knowledge/decision.md`，會和網站原始碼一起納入 GitHub repository。
 
@@ -20,6 +24,6 @@ Repository 包含 `.github/workflows/pages.yml`。將預設分支推送到 GitHu
 
 ## 後續工作
 
-- 接上即時配對、多人聊天室和遊戲房間狀態服務。
-- 加入玩家離開、重新配對、逾時及安全機制。
-- 確認出題者的自由回答方式和猜中後的換題規則。
+- 部署並驗證 Supabase 遷移，為真人模式設定 Supabase 專案。
+- 完成真人配對的離線、重新配對及玩家安全流程。
+- 在兩個不同訪客間確認一整局遊戲可正常進行。
