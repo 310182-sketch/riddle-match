@@ -3,6 +3,10 @@
   const config = window.RIDDLE_MATCH_SUPABASE_CONFIG || {};
   const neonConfig = window.RIDDLE_MATCH_NEON_CONFIG || {};
   const isConfigured = Boolean(config.url && config.anonKey);
+  const host = window.location.hostname.toLowerCase();
+  const isLocalPreview = window.location.protocol === "file:" || host === "localhost" ||
+    host.endsWith(".localhost") || /^127(?:\.\d{1,3}){3}$/.test(host) || host === "[::1]";
+  const explicitlyOnline = new URLSearchParams(window.location.search).get("online") === "1";
 
   function loadScript(path) {
     return new Promise((resolve, reject) => {
@@ -15,6 +19,11 @@
   }
 
   async function start() {
+    // A published backend must not turn opening a local copy into a live game.
+    if (isLocalPreview && !explicitlyOnline) {
+      await loadScript("app.js?v=20261126-safety");
+      return;
+    }
     if (neonConfig.functionUrl) {
       try {
         await loadScript("neon-client.js");
@@ -30,6 +39,8 @@
     if (!isConfigured) {
       if (config.url || config.anonKey) {
         window.RIDDLE_MATCH_BOOT_NOTICE = "Supabase 設定尚未填完整，目前先開啟展示模式。";
+      } else if (isLocalPreview && explicitlyOnline) {
+        window.RIDDLE_MATCH_BOOT_NOTICE = "尚未設定真人配對後端，目前先開啟展示模式。";
       }
       await loadScript("app.js?v=20261126-safety");
       return;
