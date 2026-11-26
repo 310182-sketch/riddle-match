@@ -199,12 +199,14 @@ button:disabled { opacity: .52; cursor: not-allowed !important; transform: none 
 @keyframes message-in { from { opacity: .2; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (min-width: 1200px) { .app-shell { padding-left: 9%; padding-right: 9%; } }
-@media (max-width: 850px) {
+@media (max-width: 900px) {
   .app-shell { padding-left: 5%; padding-right: 5%; }
   .home-view { grid-template-columns: .95fr 1fr; gap: 4%; }
   h1 { font-size: clamp(39px, 6vw, 55px); }
-  .game-grid { grid-template-columns: minmax(0,1.5fr) minmax(205px,.8fr); gap: 10px; }
-  .side-panel { padding: 15px 12px 11px; }
+  .game-grid { grid-template-columns: minmax(0,1fr); gap: 12px; max-width: 760px; }
+  .side-panel { padding: 14px 16px 12px; }
+  .how-to-list { flex-direction: row; justify-content: space-between; gap: 12px; }
+  .how-to-list li { flex: 1; }
 }
 @media (max-width: 650px) {
   .app-shell { padding: 0 19px; }
