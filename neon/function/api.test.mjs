@@ -69,7 +69,13 @@ async function setup() {
 }
 
 test("multi-step transactions require the direct branch connection", () => {
-  assert.equal(databaseUrl({ DATABASE_URL_UNPOOLED: "direct", DATABASE_URL: "pooled" }), "direct");
+  const env = {
+    DATABASE_URL_UNPOOLED: "postgresql://user:pass@direct.example.test/db?sslmode=require",
+    DATABASE_URL: "postgresql://user:pass@pooled.example.test/db?sslmode=require",
+  };
+  const selected = new URL(databaseUrl(env));
+  assert.equal(selected.hostname, "direct.example.test");
+  assert.equal(selected.searchParams.get("sslmode"), "verify-full");
   assert.throws(() => databaseUrl({ DATABASE_URL: "pooled" }), /DATABASE_URL_UNPOOLED/);
 });
 

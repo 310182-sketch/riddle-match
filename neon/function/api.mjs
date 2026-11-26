@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomInt } from "node:crypto";
+import { verifiedDatabaseUrl } from "./database-url.mjs";
 
 const DEFAULT_ORIGIN = "https://310182-sketch.github.io";
 const MAX_BODY_BYTES = 8192;
@@ -8,7 +9,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 export function databaseUrl(env) {
   if (!env.DATABASE_URL_UNPOOLED) throw new Error("DATABASE_URL_UNPOOLED is required");
-  return env.DATABASE_URL_UNPOOLED;
+  return verifiedDatabaseUrl(env.DATABASE_URL_UNPOOLED);
 }
 
 class ApiError extends Error {
