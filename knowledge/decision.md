@@ -2,14 +2,14 @@
 
 ## Neon CLI 部署授權
 
-- **狀態：** 資料庫已套用遷移；部署 Functions 需要 Neon CLI 的管理認證。瀏覽器登入不會自動授權本機 CLI。
+- **狀態：** 使用者已同意暫時授權 Neon CLI；資料庫及 Functions 已部署，登入暫時保留至部署驗證完成後撤銷。
 - **建議：** 暫時授權官方 Neon CLI，部署並驗證後撤銷本次 CLI 登入；不在聊天或公開 repository 傳送 API key。後續若需要持續自動部署，另建立只限此專案、可撤銷的憑證。
 - **原因：** 目前 CLI 的瀏覽器登入會請求帳號層級的專案與組織讀取、建立、修改及刪除範圍；這超過單一專案的必要權限，需由帳號擁有者確認。Dashboard 的個人 API key 表單也未提供專案範圍選擇。
 - **不阻塞的工作：** 持續完善程式、測試、文件與 Pages 發布；在 Functions 和雙訪客驗證完成前維持展示模式。
 
 ## Neon 部署目標
 
-- **狀態：** 使用者指定以 Neon 專案 `misty-shadow-98835141` 的 `br-soft-morning-beqnhn1z` 分支作為部署目標；先前 Supabase 選型不再是目標方案。資料庫遷移已套用至 `neondb`；Functions 與真人網站尚未部署、驗證。
+- **狀態：** 使用者指定以 Neon 專案 `misty-shadow-98835141` 的 `br-soft-morning-beqnhn1z` 分支作為部署目標；先前 Supabase 選型不再是目標方案。資料庫及 Functions 已部署，真人網站尚未啟用。
 - **建議：** 保留 GitHub Pages 作靜態前端，移植遊戲狀態與權限保護至 Neon PostgreSQL，採用受保護的後端介面及短輪詢同步；在確認安全和相容前先保留展示模式。若有可逆且經驗證的 Neon 原生即時方案，再評估升級。
 - **原因：** Neon 資料庫不能直接當成靜態網站主機；現有 Supabase 的認證、Realtime 與 SDK 不會自動存在於 Neon。不要把資料庫連線密碼或其他伺服器祕密放進前端或公開 repository。
 - **目前觀察：** 指定分支為 PostgreSQL 18、Free plan；已確認資料表和回合函式存在、八個原始資料表啟用 RLS、中文主題正確，並以回滾交易驗證配對與封鎖。Neon Realtime 的啟用會影響整個專案，移植初期先不依賴它。

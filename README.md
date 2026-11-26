@@ -8,7 +8,7 @@
 
 ## 真人配對後端（尚未啟用）
 
-真人模式以 Neon PostgreSQL 和 Neon Functions 為目標，使用匿名遊戲 session 及短輪詢同步房間。程式與本機測試位於 `neon/`，部署與安全邊界見 `neon/README.md`；指定 Neon 分支已套用資料庫遷移，Functions 和真人網站尚未部署驗證。網站仍由 GitHub Pages 提供，Neon 負責資料與後端 API。
+真人模式以 Neon PostgreSQL 和 Neon Functions 為目標，使用匿名遊戲 session 及短輪詢同步房間。程式與本機測試位於 `neon/`，部署與安全邊界見 `neon/README.md`；指定 Neon 分支已套用資料庫遷移並部署 Functions，真人網站尚未啟用。網站仍由 GitHub Pages 提供，Neon 負責資料與後端 API。
 
 只有完成後端部署與驗證後，才將公開 Function URL 填入 `site/neon-config.js`。設定檔會公開給所有訪客，絕不可放入資料庫連線字串、密碼或其他祕密。設定留白時保留展示模式；先前的 Supabase 原型保留在 `supabase/` 作為參考。
 

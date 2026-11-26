@@ -1,6 +1,6 @@
 # Neon 資料層
 
-此目錄的遷移將猜謎資料放在專屬的 `riddle_match` schema，不使用 Supabase、Neon Data API 或 Neon Realtime，也不修改資料庫既有的 `public`、`auth` 或其他 schema。前端經由可信的 HTTPS API 操作；瀏覽器不取得資料庫連線憑證。尚未將此遷移套用至 Neon。
+此目錄的遷移將猜謎資料放在專屬的 `riddle_match` schema，不使用 Supabase、Neon Data API 或 Neon Realtime，也不修改資料庫既有的 `public`、`auth` 或其他 schema。前端經由可信的 HTTPS API 操作；瀏覽器不取得資料庫連線憑證。兩份遷移已套用至指定 Neon 分支的 `neondb`。
 
 ## 套用前提
 

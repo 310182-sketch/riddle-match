@@ -63,6 +63,6 @@ neon logs query --source function --service-name neon-function/rmcleanup \
 
 此排程每天 UTC 18:00 執行（台北時間次日 02:00）。建立同名 trigger 會被 Neon 拒絕；不要重複建立。子 branch 繼承的 trigger 預設停用。成功與失敗分別記錄 `retention_cleanup_completed`、`retention_cleanup_failed` 及 invocation ID；資料庫失敗會回 503 並要求稍後重試，Neon 最多在事件建立後 72 小時內重試。異常 trigger 請求記錄 `retention_trigger_invalid`。日誌不含 SQL 錯誤內容、連線字串或玩家資料；應檢查日誌與缺少的成功紀錄，平台日誌保存時間依方案而定，免費方案的監控資料為一天，不代表自動告警。
 
-官方文件顯示此功能可用於免費方案，但每次執行與喚醒資料庫都消耗該方案的 Functions 和資料庫額度；額度耗盡、部署失敗或長時間累積超過批次上限時，無法保證精確在七天整刪除。部署後需確認 trigger 已啟用並觀察一次成功執行；此 repository 尚未替使用者啟用排程。參考 [Neon schedule trigger](https://neon.com/docs/compute/functions/triggers/schedule)、[失敗重試](https://neon.com/docs/compute/functions/triggers/overview#delivery-and-retries) 和 [方案額度](https://neon.com/docs/introduction/plans)。
+官方文件顯示此功能可用於免費方案，但每次執行與喚醒資料庫都消耗該方案的 Functions 和資料庫額度；額度耗盡、部署失敗或長時間累積超過批次上限時，無法保證精確在七天整刪除。指定 Neon 分支已啟用每日排程，並於 2026-11-26 09:56（台北時間）確認一次真實成功執行；外部偽造 trigger 標頭亦遭拒。其他專案部署後需自行確認。參考 [Neon schedule trigger](https://neon.com/docs/compute/functions/triggers/schedule)、[失敗重試](https://neon.com/docs/compute/functions/triggers/overview#delivery-and-retries) 和 [方案額度](https://neon.com/docs/introduction/plans)。
 
-Functions 具有執行個體淘汰與帳戶並行限制；前端必須在暫時離線或 429 後退避並重新同步。上述設計與本機測試尚不代表已對真實 Neon 分支完成部署或權限驗證。
+Functions 具有執行個體淘汰與帳戶並行限制；前端必須在暫時離線或 429 後退避並重新同步。指定分支的 API 已以隔離測試 session 驗證配對、答案保護、封鎖及跨房拒絕；已發布 Pages 以臨時設定接上 API 的雙訪客流程亦已通過，公開設定仍待啟用。
