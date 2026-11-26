@@ -2,10 +2,10 @@
 
 ## Neon 部署目標
 
-- **狀態：** 使用者指定以 Neon 專案 `misty-shadow-98835141` 的 `br-soft-morning-beqnhn1z` 分支作為部署目標；先前 Supabase 選型不再是目標方案。移植、權限設定與實際部署尚未完成。
+- **狀態：** 使用者指定以 Neon 專案 `misty-shadow-98835141` 的 `br-soft-morning-beqnhn1z` 分支作為部署目標；先前 Supabase 選型不再是目標方案。資料庫遷移已套用至 `neondb`；Functions 與真人網站尚未部署、驗證。
 - **建議：** 保留 GitHub Pages 作靜態前端，移植遊戲狀態與權限保護至 Neon PostgreSQL，採用受保護的後端介面及短輪詢同步；在確認安全和相容前先保留展示模式。若有可逆且經驗證的 Neon 原生即時方案，再評估升級。
 - **原因：** Neon 資料庫不能直接當成靜態網站主機；現有 Supabase 的認證、Realtime 與 SDK 不會自動存在於 Neon。不要把資料庫連線密碼或其他伺服器祕密放進前端或公開 repository。
-- **目前觀察：** 指定分支為 PostgreSQL 18，顯示 Free plan，尚未驗證後端程式或資料庫操作。Neon Realtime 的啟用會影響整個專案，移植初期先不依賴它。
+- **目前觀察：** 指定分支為 PostgreSQL 18、Free plan；已確認資料表和回合函式存在、八個原始資料表啟用 RLS、中文主題正確，並以回滾交易驗證配對與封鎖。Neon Realtime 的啟用會影響整個專案，移植初期先不依賴它。
 
 ## MVP 玩法預設
 
