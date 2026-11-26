@@ -124,6 +124,45 @@ test("減少動態效果設定會使用無動畫捲動", async () => {
   assert.equal(app.scrolls.every(value => value.behavior === "auto"), true);
 });
 
+test("配對等待不會每秒播報，三十秒後通知可繼續等待", async () => {
+  const app = await setup({ restored: false });
+  const original = app.backend.rpc;
+  app.backend.rpc = function(name, args) {
+    return name === "join_matchmaking" ? { data: { state: "waiting" }, error: null } : original.call(this, name, args);
+  };
+  app.get("[data-nickname-form]").elements.nickname.value = "我";
+  await app.get("[data-nickname-form]").fire("submit");
+  const initial = app.get("[data-match-status]").textContent;
+  await app.clock.advance(29_000);
+  assert.equal(app.get("[data-match-status]").textContent, initial);
+  await app.clock.advance(1_000);
+  assert.match(app.get("[data-match-status]").textContent, /三十秒/);
+  assert.equal(app.get("[data-continue]").classList.contains("hidden"), false);
+  await app.get("[data-continue]").fire("click");
+  assert.match(app.get("[data-match-status]").textContent, /繼續尋找/);
+});
+
+test("取消配對失敗時恢復鍵盤焦點，讓玩家可以重試", async () => {
+  const app = await setup({ restored: false });
+  const original = app.backend.rpc;
+  app.backend.rpc = function(name, args) {
+    if (name === "join_matchmaking") return { data: { state: "waiting" }, error: null };
+    if (name === "cancel_matchmaking") return { data: null, error: new Error("offline") };
+    return original.call(this, name, args);
+  };
+  app.get("[data-nickname-form]").elements.nickname.value = "我";
+  await app.get("[data-nickname-form]").fire("submit");
+  await flush();
+  const button = app.get("[data-cancel]");
+  app.document.activeElement = button;
+  let focused = false;
+  button.focus = () => { focused = true; };
+  await button.fire("click");
+  assert.equal(button.disabled, false);
+  assert.equal(focused, true);
+  assert.equal(app.get("#matching").classList.contains("hidden"), false);
+});
+
 test("封鎖確認可取消，確認後只傳房間 ID 並返回首頁", async () => {
   const app = await setup();
   const original = app.backend.rpc;

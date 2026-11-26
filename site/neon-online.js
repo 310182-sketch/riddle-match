@@ -376,6 +376,7 @@
         clearInterval(matchmakingTimer);
         matchmakingTimer = undefined;
         document.querySelector("[data-match-caption]").textContent = "找到謎友了，正在準備房間…";
+        document.querySelector("[data-match-status]").textContent = "找到謎友了，正在準備房間。";
         const opened = await openRoom(data.room_id, epoch);
         if (opened && epoch === matchmakingEpoch) matchmakingEpoch += 1;
       } else {
@@ -408,13 +409,18 @@
     client.saveContext({ nickname: currentNickname, matchmaking: true });
     document.querySelector("[data-continue]").classList.add("hidden");
     document.querySelector("[data-match-caption]").textContent = "正在尋找一起猜謎的新朋友…";
+    document.querySelector("[data-match-status]").textContent = "正在尋找一起猜謎的新朋友。";
     showView("matching");
     pollMatchmaking(epoch);
     matchmakingTimer = setInterval(() => {
       if (epoch !== matchmakingEpoch) return;
       const waitedSeconds = Math.floor((Date.now() - matchmakingStartedAt) / 1000);
       if (!matchFailures) document.querySelector("[data-match-caption]").textContent = `已等待 ${Math.floor(waitedSeconds / 60)}:${String(waitedSeconds % 60).padStart(2, "0")}`;
-      if (waitedSeconds >= 30) document.querySelector("[data-continue]").classList.remove("hidden");
+      const continueButton = document.querySelector("[data-continue]");
+      if (waitedSeconds >= 30 && continueButton.classList.contains("hidden")) {
+        continueButton.classList.remove("hidden");
+        document.querySelector("[data-match-status]").textContent = "已等待三十秒，可以選擇繼續等待或返回首頁。";
+      }
       if (!matchmakingBusy && Date.now() >= nextMatchPollAt) pollMatchmaking(epoch);
     }, 1000);
   }
@@ -426,9 +432,11 @@
     clearInterval(matchmakingTimer);
     matchmakingTimer = undefined;
     const cancelButton = document.querySelector("[data-cancel]");
+    const restoreFocus = document.activeElement === cancelButton;
     cancelButton.disabled = true;
     document.querySelector("[data-continue]").classList.add("hidden");
     document.querySelector("[data-match-caption]").textContent = "正在取消配對，請稍候…";
+    document.querySelector("[data-match-status]").textContent = "正在取消配對，請稍候。";
     try {
       // Wait for any in-flight join before cancelling, so a late join cannot requeue us.
       while (matchmakingBusy) await new Promise((resolve) => setTimeout(resolve, 25));
@@ -445,6 +453,7 @@
     } finally {
       cancelInProgress = false;
       cancelButton.disabled = false;
+      if (restoreFocus && !views.matching.classList.contains("hidden")) cancelButton.focus();
     }
   }
 
@@ -526,7 +535,10 @@
   }
 
   function bindEvents() {
-    document.querySelectorAll("[data-start]").forEach((button) => button.addEventListener("click", () => nicknameModal.showModal()));
+    document.querySelectorAll("[data-start]").forEach((button) => button.addEventListener("click", () => {
+      nicknameModal.showModal();
+      nicknameField.focus();
+    }));
     document.querySelector("[data-close-nickname]").addEventListener("click", () => nicknameModal.close());
     nicknameModal.addEventListener("click", (event) => { if (event.target === nicknameModal) nicknameModal.close(); });
     nicknameForm.addEventListener("submit", (event) => {
@@ -538,6 +550,7 @@
       matchmakingStartedAt = Date.now();
       document.querySelector("[data-continue]").classList.add("hidden");
       document.querySelector("[data-match-caption]").textContent = "繼續尋找一起猜謎的新朋友…";
+      document.querySelector("[data-match-status]").textContent = "繼續尋找一起猜謎的新朋友。";
     });
     document.querySelectorAll("[data-home]").forEach((button) => button.addEventListener("click", (event) => {
       event.preventDefault();
@@ -628,7 +641,6 @@
       if (data) addSystem(`給你一點提示：${data}`);
       await refreshRoom(roomId);
     });
-    reportButton.disabled = true;
     reportButton.title = "玩家安全回報功能尚未上線";
     reportButton.addEventListener("click", () => flash("玩家安全回報功能尚未上線。"));
   }

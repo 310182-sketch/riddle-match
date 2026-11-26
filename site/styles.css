@@ -122,7 +122,7 @@ h1 span { color: var(--blue); }
 .topic-strip { padding: 17px 21px; background: #e7f2ff; display: flex; align-items: center; gap: 12px; }
 .topic-icon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: #276abf; background: #fff; font-size: 23px; }
 .topic-strip>div { display: flex; flex-direction: column; gap: 3px; }
-.topic-strip small { color: #58769b; font-size: 11px; }
+.topic-strip small { color: #42618a; font-size: 11px; }
 .topic-strip b { font-size: 15px; }
 .topic-step { margin-left: auto; color: #42648e; font-size: 11px; white-space: nowrap; }.topic-step b { color: #24558f; font-size: 12px; }
 .role-row { padding: 15px 21px; display: flex; align-items: center; border-bottom: 1px solid #e9f0fa; }
@@ -178,7 +178,7 @@ h1 span { color: var(--blue); }
 .how-to-list li>span { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 auto; border-radius: 9px; color: #4571a8; background: #eff6ff; font-size: 10px; font-weight: 700; }
 .how-to-list li>div { display: flex; flex-direction: column; gap: 4px; }
 .how-to-list li b { color: #345779; font-size: 13px; }.how-to-list li small { color: #4b6485; font-size: 11px; line-height: 1.5; }
-.how-to-list li.active-step>span { color: #fff; background: #3d81d7; }
+.how-to-list li.active-step>span { color: #fff; background: #235fce; }
 .side-divider { height: 1px; background: #e7f0fa; }
 .side-note { display: flex; gap: 10px; align-items: flex-start; margin: 20px 0; }
 .note-icon { color: #4289db; font-size: 20px; }

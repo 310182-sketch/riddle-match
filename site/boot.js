@@ -19,7 +19,7 @@
       try {
         await loadScript("neon-client.js");
         if (!window.RiddleMatchNeon) throw new Error("Neon client unavailable");
-        await loadScript("neon-online.js?v=20261126-safety");
+        await loadScript("neon-online.js?v=20261126-accessibility");
       } catch (error) {
         console.error("Neon mode could not start:", error);
         window.RIDDLE_MATCH_BOOT_NOTICE = "真人配對連線程式載入失敗，目前先開啟展示模式。";
@@ -39,7 +39,7 @@
       await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js");
       if (!window.supabase?.createClient) throw new Error("Supabase client unavailable");
       window.RiddleMatchSupabase = window.supabase.createClient(config.url, config.anonKey);
-      await loadScript("online.js?v=20261126-safety");
+      await loadScript("online.js?v=20261126-accessibility");
     } catch (error) {
       console.error("Online mode could not start:", error);
       window.RIDDLE_MATCH_BOOT_NOTICE = "真人配對連線程式載入失敗，目前先開啟展示模式。";

@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20261126-safety">
+    <link rel="stylesheet" href="styles.css?v=20261126-accessibility">
   </head>
   <body>
     <div class="app-shell">
@@ -60,13 +60,14 @@
           <div class="hero-index" aria-hidden="true">01 <span></span> 03</div>
         </section>
 
-        <section id="matching" class="view matching-view hidden" aria-live="polite">
+        <section id="matching" class="view matching-view hidden" aria-labelledby="matching-title">
           <div class="match-orbit" aria-hidden="true"><span class="orbit orbit-one"></span><span class="orbit orbit-two"></span><span class="match-center">謎</span><span class="orbit-dot dot-a">✦</span><span class="orbit-dot dot-b">?</span></div>
           <p class="eyebrow centered-eyebrow">正在幫你尋找謎友</p>
-          <h2>好問題，值得<br><span>和新朋友分享。</span></h2>
+          <h2 id="matching-title">好問題，值得<br><span>和新朋友分享。</span></h2>
           <p class="match-subtitle">準備一點好奇心就好</p>
           <div class="match-progress"><span></span></div>
           <p class="match-caption" data-match-caption>正在抽取今天的主題…</p>
+          <p class="sr-only" role="status" data-match-status></p>
           <button class="text-button hidden" type="button" data-continue>繼續等待</button>
           <button class="text-button" type="button" data-cancel>先等等，返回首頁</button>
         </section>
@@ -74,8 +75,8 @@
         <section id="game" class="view game-view hidden" aria-labelledby="game-title">
           <h2 id="game-title" class="sr-only">猜謎房間</h2>
           <div class="game-heading">
-            <button class="back-button" type="button" data-home aria-label="返回首頁">← <span>離開這局</span></button>
-            <div class="round-center"><span class="round-tag">ROUND <b data-round>01</b></span><span class="round-divider"></span><span class="round-timer"><span class="timer-dot"></span><span data-timer>04:59</span></span></div>
+            <button class="back-button" type="button" data-home aria-label="離開這局並返回首頁">← <span>離開這局</span></button>
+            <div class="round-center"><span class="round-tag">ROUND <b data-round>01</b></span><span class="round-divider"></span><span class="round-timer" role="timer" aria-label="本輪剩餘時間"><span class="timer-dot" aria-hidden="true"></span><span data-timer>04:59</span></span></div>
             <button class="more-button" type="button" data-show-help aria-label="遊戲說明">···</button>
           </div>
 
@@ -106,7 +107,8 @@
               <div class="side-divider"></div>
               <div class="side-note"><span class="note-icon">♡</span><p>保持友善，讓每個問題都成為一段好對話。</p></div>
               <button class="block-button" type="button" data-block>封鎖這位謎友 <span aria-hidden="true">↗</span></button>
-              <button class="report-button" type="button" data-report>回報不適內容 <span aria-hidden="true">↗</span></button>
+              <button class="report-button" type="button" data-report aria-disabled="true" aria-describedby="report-unavailable">回報不適內容 <span aria-hidden="true">尚未上線</span></button>
+              <span id="report-unavailable" class="sr-only">回報功能尚未上線。</span>
             </aside>
           </div>
           <p class="demo-disclaimer"><span class="pulse-dot"></span> 展示模式：目前對手由示範流程模擬，尚未接上真人即時配對。</p>
@@ -151,6 +153,6 @@
     <div class="toast" data-toast role="status" aria-live="polite"></div>
     <script src="neon-config.js"></script>
     <script src="supabase-config.js"></script>
-    <script src="boot.js?v=20261126-safety"></script>
+    <script src="boot.js?v=20261126-accessibility"></script>
   </body>
 </html>
