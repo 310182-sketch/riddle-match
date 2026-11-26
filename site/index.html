@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#f7f4ee">
+    <meta name="theme-color" content="#edf5ff">
     <meta name="description" content="和陌生人配對，用提問和線索猜出謎底。">
     <title>謎友 — 和陌生人玩一場猜謎</title>
-    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="favicon.svg?v=20261126-blue-white" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20261126-layout">
+    <link rel="stylesheet" href="styles.css?v=20261126-blue-white">
   </head>
   <body>
     <div class="app-shell">
@@ -35,10 +35,13 @@
               <span>開始配對</span><span class="button-arrow" aria-hidden="true">↗</span>
             </button>
             <div class="quiet-note"><span aria-hidden="true">✦</span> 不用註冊，先玩一局看看</div>
+            <div class="hero-steps" aria-label="遊戲流程">
+              <span><b>01</b> 遇見謎友</span><span><b>02</b> 問出線索</span><span><b>03</b> 一起揭曉</span>
+            </div>
           </div>
 
           <div class="preview-card" aria-label="猜謎對話示意">
-            <div class="card-topline"><span class="live-label"><span class="pulse-dot"></span> 一場正在發生的猜謎</span><span class="round-tag">ROUND 01</span></div>
+            <div class="card-topline"><span class="live-label"><span class="pulse-dot"></span> 猜謎對話示意</span><span class="round-tag">ROUND 01</span></div>
             <div class="topic-chip"><span aria-hidden="true">☼</span> 今日主題 <b>日常小物</b></div>
             <div class="riddle-bubble">
               <div class="bubble-person"><span class="avatar avatar-orange">小</span><div><b>小島</b><span>出題者</span></div><span class="bubble-time">剛剛</span></div>
@@ -69,6 +72,7 @@
         </section>
 
         <section id="game" class="view game-view hidden" aria-labelledby="game-title">
+          <h2 id="game-title" class="sr-only">猜謎房間</h2>
           <div class="game-heading">
             <button class="back-button" type="button" data-home aria-label="返回首頁">← <span>離開這局</span></button>
             <div class="round-center"><span class="round-tag">ROUND <b data-round>01</b></span><span class="round-divider"></span><span class="round-timer"><span class="timer-dot"></span><span data-timer>04:59</span></span></div>
