@@ -43,7 +43,7 @@ jobs:
     needs: verify
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.retry_deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -59,4 +59,14 @@ jobs:
 
       - name: Deploy to GitHub Pages
         id: deployment
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+
+      - name: Wait before retrying a failed deployment
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 10
+
+      - name: Retry GitHub Pages deployment
+        if: steps.deployment.outcome == 'failure'
+        id: retry_deployment
         uses: actions/deploy-pages@v5
