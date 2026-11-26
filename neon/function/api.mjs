@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomInt } from "node:crypto";
 
 const DEFAULT_ORIGIN = "https://310182-sketch.github.io";
 const MAX_BODY_BYTES = 8192;
+const BODY_TIMEOUT_MS = 5000;
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -97,7 +98,7 @@ const rpc = {
   },
 };
 
-async function jsonBody(request) {
+async function jsonBody(request, timeoutMs) {
   if (!/^application\/json(?:\s*;|\s*$)/i.test(request.headers.get("content-type") || "")) invalid();
   const length = request.headers.get("content-length");
   if (length && (!/^\d+$/.test(length) || Number(length) > MAX_BODY_BYTES)) fail(413, "body_too_large", "內容太長。");
@@ -105,15 +106,37 @@ async function jsonBody(request) {
   const reader = request.body.getReader();
   const chunks = [];
   let size = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > MAX_BODY_BYTES) {
-      reader.cancel().catch(() => {});
-      fail(413, "body_too_large", "內容太長。");
+  let timer;
+  let onAbort;
+  let interruption;
+  const interrupted = new Promise((_, reject) => {
+    const cancel = () => {
+      interruption = new ApiError(408, "body_timeout", "讀取內容逾時，請重新送出。");
+      reject(interruption);
+      try { reader.cancel().catch(() => {}); } catch { /* Stream is already closed. */ }
+    };
+    onAbort = cancel;
+    timer = setTimeout(cancel, timeoutMs);
+    if (request.signal.aborted) cancel();
+    else request.signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    while (true) {
+      const { done, value } = await Promise.race([reader.read(), interrupted]);
+      if (interruption) throw interruption;
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_BODY_BYTES) {
+        reader.cancel().catch(() => {});
+        fail(413, "body_too_large", "內容太長。");
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+  } catch (error) {
+    throw interruption || error;
+  } finally {
+    clearTimeout(timer);
+    request.signal.removeEventListener("abort", onAbort);
   }
   try {
     const bytes = new Uint8Array(size);
@@ -191,7 +214,7 @@ function mapError(error) {
   return new ApiError(500, "internal_error", "服務暫時無法使用，請稍後再試。");
 }
 
-export function createHandler({ pool, origins = DEFAULT_ORIGIN, background = () => {}, cleanupSample = () => randomInt(32) === 0 }) {
+export function createHandler({ pool, origins = DEFAULT_ORIGIN, background = () => {}, cleanupSample = () => randomInt(32) === 0, bodyTimeoutMs = BODY_TIMEOUT_MS }) {
   const allowed = new Set(origins.split(",").map((origin) => origin.trim()).filter(Boolean));
   return async (request) => {
     const requestedOrigin = request.headers.get("origin");
@@ -209,7 +232,7 @@ export function createHandler({ pool, origins = DEFAULT_ORIGIN, background = () 
       }
       const pathname = new URL(request.url).pathname;
       if (pathname === "/session" && request.method === "POST") {
-        exactKeys(await jsonBody(request), []);
+        exactKeys(await jsonBody(request, bodyTimeoutMs), []);
         // This shared creation budget limits abuse even without trusting spoofable IP headers.
         await limit(pool, "session-create", 30);
         const token = randomBytes(32).toString("base64url");
@@ -233,18 +256,18 @@ export function createHandler({ pool, origins = DEFAULT_ORIGIN, background = () 
         return response(201, { token, ...session }, origin);
       }
       const hash = tokenHash(request);
-      // Bound invalid-token lookups too; the service-wide budget is a last-resort cap,
-      // not a substitute for an upstream per-client abuse-control service.
-      await limit(pool, "api-requests", 3000);
       const session = await readSession(pool, hash);
+      // Invalid tokens and a single over-limit player must not exhaust the shared
+      // budget of active players. The initial lookup still needs trusted edge limits.
       await limit(pool, `player:${session.player_id}`, 150);
+      await limit(pool, "api-requests", 3000);
       if (pathname === "/session" && request.method === "GET") {
         return response(200, { user_id: session.player_id, expires_at: session.expires_at }, origin);
       }
       const match = /^\/rpc\/([a-z_]+)$/.exec(pathname);
       const method = match && Object.hasOwn(rpc, match[1]) ? rpc[match[1]] : null;
       if (!method || request.method !== "POST") fail(404, "not_found", "找不到這個操作。");
-      const args = method.args(await jsonBody(request));
+      const args = method.args(await jsonBody(request, bodyTimeoutMs));
       const data = await transaction(pool, async (client) => {
         const current = await readSession(client, hash);
         await client.query("select set_config('riddle_match.player_id', $1, true)", [current.player_id]);

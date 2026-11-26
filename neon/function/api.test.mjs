@@ -117,6 +117,42 @@ test("request bodies are bounded, typed, and reject unexpected fields", async ()
   assert.equal(app.pool.calls.some(({ sql }) => sql.startsWith("select riddle_match.get_room")), false);
 });
 
+test("an unfinished body times out and cancels the stream before any database work", async () => {
+  const pool = new FakePool();
+  const fetch = createHandler({ pool, bodyTimeoutMs: 20, cleanupSample: () => false });
+  let cancelled = false;
+  const body = new ReadableStream({
+    start(controller) { controller.enqueue(new TextEncoder().encode("{")); },
+    cancel() { cancelled = true; },
+  });
+  const res = await fetch(new Request("https://example.test/session", {
+    method: "POST", headers: { Origin: ORIGIN, "Content-Type": "application/json" }, body, duplex: "half",
+  }));
+  assert.equal(res.status, 408);
+  assert.equal((await res.json()).error.code, "body_timeout");
+  assert.equal(cancelled, true);
+  assert.equal(pool.calls.length, 0);
+});
+
+test("a disconnected client cancels an unfinished body without waiting for its deadline", async () => {
+  const pool = new FakePool();
+  const fetch = createHandler({ pool, bodyTimeoutMs: 5000, cleanupSample: () => false });
+  const controller = new AbortController();
+  let cancelled = false;
+  const body = new ReadableStream({
+    start(stream) { stream.enqueue(new TextEncoder().encode("{")); },
+    cancel() { cancelled = true; },
+  });
+  const response = fetch(new Request("https://example.test/session", {
+    method: "POST", headers: { Origin: ORIGIN, "Content-Type": "application/json" },
+    body, duplex: "half", signal: controller.signal,
+  }));
+  controller.abort();
+  assert.equal((await response).status, 408);
+  assert.equal(cancelled, true);
+  assert.equal(pool.calls.length, 0);
+});
+
 test("RPC calls are allowlisted, parameterized, and bound to transaction-local player identity", async () => {
   const app = await setup();
   const payload = { p_room_id: ROOM, p_round_number: 2, p_guess: "') ; DROP TABLE x; --" };
@@ -194,6 +230,24 @@ test("rate budgets are enforced and database errors never expose internals", asy
   app.pool.limits.set("session-create", 30);
   const createLimited = await app.fetch(request("/session", { method: "POST", body: {} }));
   assert.equal(createLimited.status, 429);
+});
+
+test("invalid tokens and an over-limit player do not consume the shared active-player budget", async () => {
+  const app = await setup();
+  app.pool.limits.set("api-requests", 2999);
+  for (let i = 0; i < 3; i += 1) {
+    const invalid = await app.fetch(request("/session", { token: "A".repeat(43) }));
+    assert.equal(invalid.status, 401);
+  }
+  assert.equal(app.pool.limits.get("api-requests"), 2999);
+  const allowed = await app.fetch(request("/session", { token: app.session.token }));
+  assert.equal(allowed.status, 200);
+  assert.equal(app.pool.limits.get("api-requests"), 3000);
+  app.pool.limits.set("api-requests", 0);
+  app.pool.limits.set(`player:${USER}`, 150);
+  const playerLimited = await app.fetch(request("/session", { token: app.session.token }));
+  assert.equal(playerLimited.status, 429);
+  assert.equal(app.pool.limits.get("api-requests"), 0);
 });
 
 test("stale-round, forbidden-room, and chat-rate errors use safe response codes", async () => {
