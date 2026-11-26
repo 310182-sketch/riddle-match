@@ -17,8 +17,9 @@
   let role = "guesser";
   let hintUsed = false;
   let solved = false;
-  let secondsLeft = 299;
+  let secondsLeft = 300;
   let pendingMatch;
+  let roundEpoch = 0;
   const initialTopic = { topic: "日常小物", answer: "雨傘", riddle: "我出門時常常帶著它，下雨的時候就會派上用場。", hint: "下雨天常常會帶著它出門。" };
   const topics = [
     { topic: "城市角落", answer: "公車站", riddle: "人們在這裡短暫相遇，等一個會載著大家往前走的東西。", hint: "常常可以在路邊看到它。" },
@@ -37,7 +38,20 @@
 
   function showView(name) {
     Object.entries(views).forEach(([key, element]) => element.classList.toggle("hidden", key !== name));
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const heading = views[name].querySelector("h1, h2");
+    if (heading) {
+      heading.setAttribute("tabindex", "-1");
+      heading.focus({ preventScroll: true });
+    }
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
+  }
+
+  function scheduleRoundReply(callback, delay) {
+    const epoch = roundEpoch;
+    setTimeout(() => {
+      if (epoch === roundEpoch && !solved && !views.game.classList.contains("hidden")) callback();
+    }, delay);
   }
 
   function flash(message) {
@@ -48,6 +62,7 @@
   }
 
   function start() {
+    roundEpoch += 1;
     clearTimeout(pendingMatch);
     clearInterval(timerId);
     role = Math.random() < 0.5 ? "guesser" : "setter";
@@ -58,12 +73,14 @@
   }
 
   function beginRound() {
+    roundEpoch += 1;
     const template = round === 1 && role === "guesser" ? initialTopic : topics[(topicNumber - 1) % topics.length];
     current = { ...template };
     if (role === "setter") current.answer = "";
     hintUsed = false;
     solved = false;
-    secondsLeft = 299;
+    secondsLeft = 300;
+    document.querySelector("[data-timer]").textContent = "05:00";
     document.querySelector("[data-next-round]")?.remove();
     setterForm.elements.riddle.value = "";
     setterForm.elements.answer.value = "";
@@ -139,6 +156,7 @@
   }
 
   function finishByTimeout() {
+    solved = true;
     const reveal = role === "guesser"
       ? `時間到囉！這題的答案是「${current.answer}」。下一輪交換角色。`
       : current.answer
@@ -168,7 +186,7 @@
     addMessage("you", "你", "你", "avatar-blue", `我猜是「${value}」！`);
     const choices = acceptedAnswers[current.answer] || [current.answer];
     const correct = choices.some((answer) => normalize(answer) === normalize(value));
-    setTimeout(() => {
+    scheduleRoundReply(() => {
       if (correct) {
         solved = true;
         clearInterval(timerId);
@@ -223,9 +241,9 @@
     field.value = "";
     addMessage("you", "你", "你", "avatar-blue", value);
     if (role === "guesser") {
-      setTimeout(() => addMessage("opponent", "小島", "小", "avatar-orange", answerToQuestion(value)), 500);
+      scheduleRoundReply(() => addMessage("opponent", "小島", "小", "avatar-orange", answerToQuestion(value)), 500);
     } else {
-      setTimeout(() => addMessage("opponent", "小島", "小", "avatar-orange", "謝謝回答！我好像快想到答案了。"), 500);
+      scheduleRoundReply(() => addMessage("opponent", "小島", "小", "avatar-orange", "謝謝回答！我好像快想到答案了。"), 500);
     }
   });
 
@@ -265,10 +283,13 @@
 
   document.querySelectorAll("[data-start]").forEach((button) => button.addEventListener("click", start));
   document.querySelector("[data-cancel]").addEventListener("click", () => {
+    roundEpoch += 1;
     clearTimeout(pendingMatch);
     showView("home");
   });
-  document.querySelectorAll("[data-home]").forEach((button) => button.addEventListener("click", () => {
+  document.querySelectorAll("[data-home]").forEach((button) => button.addEventListener("click", (event) => {
+    event.preventDefault();
+    roundEpoch += 1;
     clearTimeout(pendingMatch);
     clearInterval(timerId);
     role = "guesser";
