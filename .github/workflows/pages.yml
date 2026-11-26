@@ -15,7 +15,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install test dependencies
+        run: |
+          npm ci --prefix supabase
+          npm ci --prefix neon
+          npm ci --prefix neon/function
+
+      - name: Run client and database tests
+        run: |
+          node --test tests/*.test.mjs scripts/*.test.mjs
+          npm test --prefix supabase
+          npm run test:db --prefix neon
+          npm test --prefix neon/function
+
   deploy:
+    needs: verify
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

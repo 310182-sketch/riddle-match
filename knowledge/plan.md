@@ -20,12 +20,13 @@
 - GitHub Pages 展示版已發布；知識記錄所列的公開網址為 <https://310182-sketch.github.io/riddle-match/>，原始碼 repository 為 <https://github.com/310182-sketch/riddle-match>。
 - `site/` 是可直接預覽的靜態單頁原型，包含示範配對、聊天室、出題與猜題、提示、倒數、答案判定及換角流程。
 - 展示版的對手、訊息、答案判定和回合狀態都在同一個瀏覽器模擬；不同訪客尚未配對，也不會共享遊戲房間。
-- 已決定真人即時服務採用 Supabase Anonymous Auth、Postgres RPC 配對及 Supabase Realtime 房間同步。
+- 曾以 Supabase Anonymous Auth、Postgres RPC 及 Realtime 建立真人配對原型；現已依使用者指定改以 Neon 為部署目標。
 - repository 已加入第一版 Supabase 資料庫遷移及可選真人配對前端；包含匿名登入、暱稱、配對等待與取消、聊天同步、答案／提示 RPC 及角色輪替。
 - 遷移與前端程式尚未套用至 Supabase project，也未用兩個訪客做端到端驗證；`site/supabase-config.js` 未設定時網站仍使用展示模式。
 - 尚待完成真人環境的部署與權限核對、斷線處理、玩家安全機制、資料保留規則及跨訪客驗證。
 - 使用者已指定 Neon 專案 `misty-shadow-98835141` / `br-soft-morning-beqnhn1z` 作為資料庫部署目標；現有 Supabase 原型需重新移植，並非已在 Neon 上線。
 - 已依要求改為藍白主色並調整首頁、等待與房間版面；展示流程已在多種視窗寬度檢查。
+- 已完成 Neon 專用資料庫遷移、Functions API 和選用式前端；本機完成兩訪客流程及 PostgreSQL 並行測試，尚未在指定分支套用或驗證。
 
 ## 路線圖
 
@@ -44,8 +45,11 @@
 
 ### 3. Neon 真人配對後端
 
+- [x] 建立獨立 Neon schema、匿名 session、房間權限、祕密答案及回合狀態的本機實作與測試。
+- [x] 建立 Neon Functions API、短輪詢前端、斷線心跳及惰性資料清理的本機實作；保留未設定時的展示模式。
+- [x] 以本機 PGlite、兩個瀏覽器訪客及 PostgreSQL 多連線測試配對、權限、逾時及回合競態。
 - [ ] 將遊戲資料、角色驗證及答案保護移植至指定的 Neon PostgreSQL 分支。
-- [ ] 建立可供靜態網站安全使用的匿名身分與後端 API，並同步房間及聊天狀態。
+- [ ] 在指定 Neon 分支部署匿名身分與後端 API，並驗證靜態網站的房間及聊天同步。
 - [ ] 在指定 Neon 專案部署並核對權限、房間隔離、答案保護和資料保留方式。
 - [ ] 使用兩個不同訪客端到端驗證配對、聊天、答案、提示及換角流程。
 
@@ -65,6 +69,7 @@
 - [ ] 實作檢舉、封鎖或其他基本玩家安全機制。
 - [ ] 實作玩家離開、斷線、重新配對、等待逾時及房間清理流程。
 - [ ] 定義聊天與遊戲資料的保留及刪除方式，並加入必要的防濫用限制。
+- 本機 Neon 原型已加入離開、斷線心跳、過期佇列與惰性七日清理，以及基本限流；仍需實際部署驗證、玩家安全操作和更可靠的公開服務防濫用。
 
 ### 5. 真人測試與發布
 
@@ -108,4 +113,5 @@
 - [x] 選定 Supabase Anonymous Auth、Postgres RPC 及 Supabase Realtime 作為真人即時版本的方案。
 - [x] 確認真人版本需將謎底及回合權威狀態留在伺服器，並以資料存取規則保護房間。
 - [x] 確認不得把服務角色金鑰、Personal Access Token 或其他伺服器祕密放入公開前端或 repository。
+- [x] 依使用者指定改以 Neon PostgreSQL 與 Functions 為真人後端，GitHub Pages 繼續提供網站頁面。
 - [x] 設定 GitHub repository、Pages 部署來源及本機安全 GitHub 授權方式。

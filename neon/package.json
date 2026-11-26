@@ -1,0 +1,13 @@
+{
+  "name": "riddle-match-neon",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:db": "node --test tests/*.test.js",
+    "test:postgres": "node --test tests/postgres-concurrency.test.js"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.6.0",
+    "pg": "^8.23.1"
+  }
+}
