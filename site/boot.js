@@ -19,11 +19,11 @@
       try {
         await loadScript("neon-client.js");
         if (!window.RiddleMatchNeon) throw new Error("Neon client unavailable");
-        await loadScript("neon-online.js");
+        await loadScript("neon-online.js?v=20261126-safety");
       } catch (error) {
         console.error("Neon mode could not start:", error);
         window.RIDDLE_MATCH_BOOT_NOTICE = "真人配對連線程式載入失敗，目前先開啟展示模式。";
-        await loadScript("app.js?v=20261126-focus");
+        await loadScript("app.js?v=20261126-safety");
       }
       return;
     }
@@ -31,7 +31,7 @@
       if (config.url || config.anonKey) {
         window.RIDDLE_MATCH_BOOT_NOTICE = "Supabase 設定尚未填完整，目前先開啟展示模式。";
       }
-      await loadScript("app.js?v=20261126-focus");
+      await loadScript("app.js?v=20261126-safety");
       return;
     }
 
@@ -39,11 +39,11 @@
       await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js");
       if (!window.supabase?.createClient) throw new Error("Supabase client unavailable");
       window.RiddleMatchSupabase = window.supabase.createClient(config.url, config.anonKey);
-      await loadScript("online.js");
+      await loadScript("online.js?v=20261126-safety");
     } catch (error) {
       console.error("Online mode could not start:", error);
       window.RIDDLE_MATCH_BOOT_NOTICE = "真人配對連線程式載入失敗，目前先開啟展示模式。";
-      await loadScript("app.js?v=20261126-focus");
+      await loadScript("app.js?v=20261126-safety");
     }
   }
 

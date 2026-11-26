@@ -21,14 +21,15 @@ test("PostgreSQL concurrent matchmaking, room membership and round transitions",
     await client.query("begin");
     await client.query("select set_config('riddle_match.player_id', $1, true)", [id]);
   }
-  const ids = Array.from({ length: 8 }, (_, i) => `00000000-0000-0000-0000-${String(i + 1).padStart(12, "0")}`);
+  const ids = Array.from({ length: 12 }, (_, i) => `00000000-0000-0000-0000-${String(i + 1).padStart(12, "0")}`);
 
   try {
     const admin = await open(), a = await open(), b = await open(), c = await open();
-    const migration = await readFile(new URL("../migrations/20261126000000_riddle_match.sql", import.meta.url), "utf8");
+    const migrations = await Promise.all(["20261126000000_riddle_match.sql", "20261126010000_player_blocks.sql"]
+      .map((file) => readFile(new URL(`../migrations/${file}`, import.meta.url), "utf8")));
     await admin.query("begin");
     try {
-      await admin.query(migration);
+      for (const migration of migrations) await admin.query(migration);
       await admin.query("commit");
       installed = true;
     } catch (error) {
@@ -89,6 +90,47 @@ test("PostgreSQL concurrent matchmaking, room membership and round transitions",
     ]);
     assert.equal(advanced.filter((v) => v.round_number === 2).length, 1);
     assert.equal(advanced.filter((v) => v.message === "round_changed").length, 1);
+
+    // Remove the unrelated waiting player from the earlier matching test.
+    await admin.query("delete from riddle_match.matchmaking_queue");
+    async function call(client, playerId, sql, params = []) {
+      await actor(client, playerId);
+      const value = (await client.query(sql, params)).rows[0].value;
+      await client.query("commit");
+      return value;
+    }
+    const join = "select riddle_match.join_matchmaking('玩家') as value";
+    const leave = "select riddle_match.leave_room($1) as value";
+    const block = "select riddle_match.block_opponent($1) as value";
+
+    // A block which owns the advisory lock first must stop a concurrent join.
+    await call(a, ids[6], join);
+    const first = (await call(b, ids[7], join)).room_id;
+    await call(a, ids[6], leave, [first]);
+    await call(a, ids[6], join);
+    await actor(a, ids[6]); await a.query(block, [first]);
+    await actor(b, ids[7]);
+    const blockedJoin = b.query(join);
+    await delay(100); await a.query("commit");
+    assert.equal((await blockedJoin).rows[0].value.state, "waiting");
+    await b.query("commit");
+    await admin.query("delete from riddle_match.matchmaking_queue");
+
+    // If a rematch gets the lock first, a delayed block closes the new shared
+    // room as soon as that transaction commits.
+    await call(a, ids[8], join);
+    const oldRoom = (await call(b, ids[9], join)).room_id;
+    await call(a, ids[8], leave, [oldRoom]);
+    await call(a, ids[8], join);
+    await actor(b, ids[9]);
+    const rematch = (await b.query(join)).rows[0].value;
+    assert.equal(rematch.state, "matched");
+    await actor(a, ids[8]);
+    const delayedBlock = a.query(block, [oldRoom]);
+    await delay(100); await b.query("commit");
+    assert.equal((await delayedBlock).rows[0].value.state, "blocked");
+    await a.query("commit");
+    assert.equal((await admin.query("select status from riddle_match.match_rooms where id = $1", [rematch.room_id])).rows[0].status, "abandoned");
   } finally {
     // The schema is dropped only if this test created it successfully.
     await Promise.allSettled(clients.map((client) => client.query("rollback")));

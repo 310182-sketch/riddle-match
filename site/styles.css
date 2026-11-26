@@ -183,9 +183,11 @@ h1 span { color: var(--blue); }
 .side-note { display: flex; gap: 10px; align-items: flex-start; margin: 20px 0; }
 .note-icon { color: #4289db; font-size: 20px; }
 .side-note p { color: #5f7898; font-size: 12px; line-height: 1.7; margin: 0; }
-.report-button { margin-top: auto; border: 1px solid #e2edfa; border-radius: 9px; background: #f4f8ff; color: #4a6f9d; min-height: 44px; padding: 10px 12px; font-size: 12px; text-align: left; cursor: pointer; }
-.report-button span { float: right; }
-.report-button:hover { background: #e8f3ff; color: #2359a1; }
+.block-button,.report-button { border: 1px solid #e2edfa; border-radius: 9px; background: #f4f8ff; color: #355e91; min-height: 44px; padding: 10px 12px; font-size: 12px; text-align: left; cursor: pointer; }
+.block-button { margin-top: auto; }
+.report-button { margin-top: 8px; }
+.block-button span,.report-button span { float: right; }
+.block-button:hover,.report-button:hover { background: #e8f3ff; color: #2359a1; }
 .demo-disclaimer { color: #4b6485; font-size: 12px; line-height: 1.6; text-align: center; margin: 16px 0 0; }
 .demo-disclaimer .pulse-dot { width: 6px; height: 6px; margin-right: 5px; }
 
@@ -198,6 +200,11 @@ h1 span { color: var(--blue); }
 .modal h2 { font-size: 25px; margin: 12px 0 8px; }
 .modal-copy { color: #5b7392; font-size: 14px; line-height: 1.8; margin: 10px 0 22px; }
 .modal-action { min-height: 48px; min-width: 150px; font-size: 14px; }
+.block-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.block-actions .modal-action { justify-content: center; }
+.secondary-button { min-height: 48px; min-width: 110px; border: 1px solid #cddff4; border-radius: 12px; background: #fff; color: #315c90; font-size: 14px; font-weight: 700; cursor: pointer; }
+.secondary-button:hover { background: #eaf3ff; }
+.block-error:not(:empty) { color: #a12835; font-size: 13px; line-height: 1.6; margin: -8px 0 16px; }
 .nickname-form { display: flex; flex-direction: column; gap: 8px; text-align: left; }
 .nickname-form label { color: #365d8c; font-size: 13px; font-weight: 700; }
 .nickname-form input { min-height: 48px; border: 1px solid #d8e6f6; border-radius: 10px; background: #fff; color: var(--ink); padding: 0 12px; font-size: 15px; }

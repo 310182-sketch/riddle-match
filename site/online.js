@@ -556,6 +556,7 @@
     reportButton.disabled = true;
     reportButton.title = "玩家安全回報功能尚未上線";
     reportButton.addEventListener("click", () => flash("玩家安全回報功能尚未上線。"));
+    document.querySelector("[data-block]").addEventListener("click", () => flash("這個連線模式尚未提供封鎖，您可以先離開這局。"));
   }
 
   async function initialize() {

@@ -123,3 +123,52 @@ test("減少動態效果設定會使用無動畫捲動", async () => {
   assert.equal(app.scrolls.length > 0, true);
   assert.equal(app.scrolls.every(value => value.behavior === "auto"), true);
 });
+
+test("封鎖確認可取消，確認後只傳房間 ID 並返回首頁", async () => {
+  const app = await setup();
+  const original = app.backend.rpc;
+  app.backend.rpc = function(name, args) {
+    return name === "block_opponent" ? { data: { state: "blocked" }, error: null } : original.call(this, name, args);
+  };
+  await app.get("[data-block]").fire("click");
+  assert.equal(app.get("[data-block-modal]").open, true);
+  await app.get("[data-cancel-block]").fire("click");
+  assert.equal(app.get("[data-block-modal]").open, false);
+  assert.equal(app.backend.calls.some(call => call.name === "block_opponent"), false);
+  await app.get("[data-block]").fire("click");
+  await app.get("[data-confirm-block]").fire("click");
+  const call = app.backend.calls.find(item => item.name === "block_opponent");
+  assert.equal(call.args.p_room_id, "room-1");
+  assert.deepEqual(Object.keys(call.args), ["p_room_id"]);
+  assert.equal(app.backend.calls.some(item => item.name === "leave_room"), false);
+  assert.equal(app.get("[data-block-modal]").open, false);
+  assert.equal(app.get("#home").classList.contains("hidden"), false);
+  assert.match(app.get("[data-toast]").textContent, /已封鎖/);
+  assert.equal(app.client.getContext().roomId, undefined);
+});
+
+test("封鎖失敗保留對話框並能重試；傳送期間鎖住其他操作", async () => {
+  const app = await setup();
+  const pending = defer(), original = app.backend.rpc;
+  let attempt = 0;
+  app.backend.rpc = function(name, args) {
+    if (name !== "block_opponent") return original.call(this, name, args);
+    return ++attempt === 1 ? pending.promise : { data: { state: "blocked" }, error: null };
+  };
+  await app.get("[data-block]").fire("click");
+  const operation = app.get("[data-confirm-block]").fire("click");
+  assert.equal(app.get("[data-confirm-block]").disabled, true);
+  assert.equal(app.get("[data-cancel-block]").disabled, true);
+  await app.get("[data-cancel-block]").fire("click");
+  assert.equal(app.get("[data-block-modal]").open, true);
+  await app.get("[data-home]").fire("click");
+  assert.equal(app.backend.calls.some(item => item.name === "leave_room"), false);
+  pending.resolve({ data: null, error: new Error("offline") });
+  await operation;
+  assert.match(app.get("[data-block-error]").textContent, /再試/);
+  assert.equal(app.get("[data-confirm-block]").disabled, false);
+  assert.equal(app.get("#game").classList.contains("hidden"), false);
+  await app.get("[data-confirm-block]").fire("click");
+  assert.equal(app.get("#home").classList.contains("hidden"), false);
+  assert.equal(attempt, 2);
+});

@@ -133,6 +133,22 @@ test("RPC calls are allowlisted, parameterized, and bound to transaction-local p
   assert.equal(missingRound.status, 400);
 });
 
+test("blocking accepts only the room id and derives player identity from the session", async () => {
+  const app = await setup();
+  const invalid = await app.fetch(request("/rpc/block_opponent", {
+    method: "POST", token: app.session.token, body: { p_room_id: ROOM, p_target_id: USER },
+  }));
+  assert.equal(invalid.status, 400);
+  assert.equal(app.pool.calls.some(({ sql }) => sql.startsWith("select riddle_match.block_opponent")), false);
+  const valid = await app.fetch(request("/rpc/block_opponent", {
+    method: "POST", token: app.session.token, body: { p_room_id: ROOM },
+  }));
+  assert.equal(valid.status, 200);
+  const call = app.pool.calls.find(({ sql }) => sql.startsWith("select riddle_match.block_opponent"));
+  assert.deepEqual(call.args, [ROOM]);
+  assert.equal(call.context, USER);
+});
+
 test("expired and fabricated sessions fail before any protected RPC", async () => {
   const app = await setup();
   const hash = createHash("sha256").update(app.session.token).digest("hex");

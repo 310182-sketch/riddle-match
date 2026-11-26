@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import vm from "node:vm";
 import { PGlite } from "@electric-sql/pglite";
 import { createHandler } from "./api.mjs";
@@ -8,7 +8,10 @@ import { createHandler } from "./api.mjs";
 test("browser client interoperates with API and database for two separate players", async (t) => {
   const db = new PGlite();
   t.after(() => db.close());
-  await db.exec(await readFile(new URL("../migrations/20261126000000_riddle_match.sql", import.meta.url), "utf8"));
+  const dir = new URL("../migrations/", import.meta.url);
+  const migrations = (await readdir(dir)).filter((name) => /^\d+_.+\.sql$/.test(name)).sort();
+  assert.ok(migrations.includes("20261126010000_player_blocks.sql"));
+  for (const name of migrations) await db.exec(await readFile(new URL(name, dir), "utf8"));
   const pool = {
     query: (sql, args) => db.query(sql, args),
     connect: async () => ({ query: (sql, args) => db.query(sql, args), release() {} }),

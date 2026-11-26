@@ -15,6 +15,10 @@
   const nicknameField = nicknameForm.elements.nickname;
   const reportButton = document.querySelector("[data-report]");
   const hintButton = document.querySelector("[data-hint]");
+  const blockDialog = document.querySelector("[data-block-modal]");
+  const blockCancel = document.querySelector("[data-cancel-block]");
+  const blockConfirm = document.querySelector("[data-confirm-block]");
+  const blockError = document.querySelector("[data-block-error]");
   const modeLabel = document.querySelector("[data-mode-label]");
   let toastTimer;
   let timerId;
@@ -488,6 +492,39 @@
     showView("home");
   }
 
+  async function blockOpponent() {
+    if (!currentRoom || leavingRoom) return;
+    const roomId = currentRoom.id;
+    leavingRoom = true;
+    blockCancel.disabled = true;
+    blockConfirm.disabled = true;
+    blockError.textContent = "";
+    try {
+      const { data, error } = await client.rpc("block_opponent", { p_room_id: roomId });
+      if (currentRoom?.id !== roomId) return;
+      if (error) throw error;
+      if (data?.state !== "blocked") throw new Error("invalid_block_response");
+      stopTimer();
+      stopRoomPolling();
+      currentRoom = undefined;
+      loadedRound = null;
+      latestStatusKey = "";
+      client.saveContext({});
+      blockDialog.close();
+      showView("home");
+      flash("已封鎖這位謎友並離開；封鎖在目前匿名連線中有效。");
+    } catch (error) {
+      if (currentRoom?.id !== roomId) return;
+      console.error(error);
+      blockError.textContent = error.status === 429 ? "操作太頻繁，請稍候再試。" : "無法確認封鎖，請檢查連線後再試。";
+      startRoomPolling(roomId);
+    } finally {
+      leavingRoom = false;
+      blockCancel.disabled = false;
+      blockConfirm.disabled = false;
+    }
+  }
+
   function bindEvents() {
     document.querySelectorAll("[data-start]").forEach((button) => button.addEventListener("click", () => nicknameModal.showModal()));
     document.querySelector("[data-close-nickname]").addEventListener("click", () => nicknameModal.close());
@@ -511,6 +548,14 @@
     document.querySelectorAll("[data-show-help]").forEach((button) => button.addEventListener("click", () => document.querySelector("[data-modal]").showModal()));
     document.querySelectorAll("[data-close-modal]").forEach((button) => button.addEventListener("click", () => document.querySelector("[data-modal]").close()));
     document.querySelector("[data-modal]").addEventListener("click", (event) => { if (event.target === event.currentTarget) event.currentTarget.close(); });
+    document.querySelector("[data-block]").addEventListener("click", () => {
+      if (!currentRoom || leavingRoom || blockDialog.open) return;
+      blockError.textContent = "";
+      blockDialog.showModal();
+    });
+    blockCancel.addEventListener("click", () => { if (!leavingRoom) blockDialog.close(); });
+    blockConfirm.addEventListener("click", blockOpponent);
+    blockDialog.addEventListener("cancel", (event) => { if (leavingRoom) event.preventDefault(); });
 
     chatForm.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -621,6 +666,7 @@
     stopRoomPolling();
     currentRoom = undefined;
     leavingRoom = false;
+    if (blockDialog.open) blockDialog.close();
     client.clearSession();
     document.querySelectorAll("[data-start]").forEach((button) => { button.disabled = true; });
     showView("home");

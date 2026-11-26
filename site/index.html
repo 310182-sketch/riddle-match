@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20261126-blue-white">
+    <link rel="stylesheet" href="styles.css?v=20261126-safety">
   </head>
   <body>
     <div class="app-shell">
@@ -105,6 +105,7 @@
               <ol class="how-to-list"><li class="active-step"><span>01</span><div><b>讀讀謎題</b><small>主題是這局的線索方向</small></div></li><li><span>02</span><div><b>自由提問</b><small>在聊天室問出你的想法</small></div></li><li><span>03</span><div><b>提交答案</b><small>猜中就能交換角色</small></div></li></ol>
               <div class="side-divider"></div>
               <div class="side-note"><span class="note-icon">♡</span><p>保持友善，讓每個問題都成為一段好對話。</p></div>
+              <button class="block-button" type="button" data-block>封鎖這位謎友 <span aria-hidden="true">↗</span></button>
               <button class="report-button" type="button" data-report>回報不適內容 <span aria-hidden="true">↗</span></button>
             </aside>
           </div>
@@ -128,6 +129,17 @@
       </form>
     </dialog>
 
+    <dialog class="modal" data-block-modal aria-labelledby="block-title" aria-describedby="block-description">
+      <span class="modal-mark" aria-hidden="true">謎</span>
+      <h2 id="block-title">封鎖這位謎友？</h2>
+      <p class="modal-copy" id="block-description">封鎖後會離開這局，並避免在目前的匿名連線中再次配對。換用新的匿名連線後，這個封鎖不會保留。</p>
+      <p class="block-error" data-block-error role="alert"></p>
+      <div class="block-actions">
+        <button class="secondary-button" type="button" data-cancel-block autofocus>取消</button>
+        <button class="primary-button modal-action" type="button" data-confirm-block>封鎖並離開</button>
+      </div>
+    </dialog>
+
     <dialog class="modal" data-modal aria-labelledby="modal-title">
       <button class="modal-close" type="button" data-close-modal aria-label="關閉">×</button>
       <span class="modal-mark">謎</span>
@@ -139,6 +151,6 @@
     <div class="toast" data-toast role="status" aria-live="polite"></div>
     <script src="neon-config.js"></script>
     <script src="supabase-config.js"></script>
-    <script src="boot.js?v=20261126-neon"></script>
+    <script src="boot.js?v=20261126-safety"></script>
   </body>
 </html>

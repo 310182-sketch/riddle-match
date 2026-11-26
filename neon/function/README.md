@@ -37,6 +37,7 @@ neon functions get riddlematch --project-id <project-id> --branch <branch-id-or-
 
 - `POST /session` 接收 `{}`，回傳 `{token,user_id,expires_at}`。token 為隨機 256 位元，只有 SHA-256 雜湊儲存在資料庫，固定 24 小時到期；`GET /session` 以 bearer token 檢查是否仍有效。
 - `POST /rpc/<name>` 接收既有的 `p_*` 參數；成功時回 `{data}`，失敗時回 `{error:{code,message}}`。可呼叫操作固定列在 `api.mjs`，每個交易先驗證 session，再以 transaction-local context 執行資料庫函式。
+- `POST /rpc/block_opponent` 僅接受 `{p_room_id}`，由資料庫根據登入者與房間確認要封鎖的對手；成功回 `{data:{state:"blocked"}}`，非房間成員回 403，重試相同操作不會重複建立紀錄。封鎖會結束房間，並阻止雙方再次配對；保護範圍限於目前的匿名身分，不會延續到日後建立的新 session。
 - 只接受明確允許的 Origin、JSON 與最多 8 KiB 的 request body。函式不傳回 SQL 錯誤、資料庫位址或憑證。
 - 目前限制每位玩家 150 次／分鐘、全部已格式化 token 請求 3000 次／分鐘、全站 session 建立 30 次／分鐘；聊天室另限制同一玩家 500ms 一則、每輪最多 500 則。短輪詢應依 `Retry-After` 退避。
 - 全站限額能限制資料庫負載，但可能被惡意耗盡而讓其他人暫時無法使用；不應將可偽造的轉送標頭當成客戶端 IP。正式公開服務前仍需可信的邊緣防濫用和監控。

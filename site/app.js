@@ -301,5 +301,6 @@
   document.querySelectorAll("[data-close-modal]").forEach((button) => button.addEventListener("click", () => modal.close()));
   modal.addEventListener("click", (event) => { if (event.target === modal) modal.close(); });
   document.querySelector("[data-report]").addEventListener("click", () => flash("展示版尚未接上回報服務。正式上線前會加入這項功能。"));
+  document.querySelector("[data-block]").addEventListener("click", () => flash("展示模式的對手由程式模擬，沒有真人需要封鎖。"));
   if (window.RIDDLE_MATCH_BOOT_NOTICE) flash(window.RIDDLE_MATCH_BOOT_NOTICE);
 })();

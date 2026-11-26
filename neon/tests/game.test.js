@@ -13,7 +13,9 @@ test("Neon private schema enforces room operations and isolation", async (t) => 
   await db.exec(`create schema auth; create table public.sentinel (value text); insert into public.sentinel values ('untouched');
     create table auth.sentinel (value text); insert into auth.sentinel values ('untouched');
     create role untrusted_client;`);
-  await db.exec(await readFile(new URL("../migrations/20261126000000_riddle_match.sql", import.meta.url), "utf8"));
+  for (const file of ["20261126000000_riddle_match.sql", "20261126010000_player_blocks.sql"]) {
+    await db.exec(await readFile(new URL(`../migrations/${file}`, import.meta.url), "utf8"));
+  }
   for (let i = 0; i < ids.length; i++) {
     await db.query("insert into riddle_match.players (id) values ($1)", [ids[i]]);
     await db.query("insert into riddle_match.player_sessions (player_id, token_hash, expires_at) values ($1, $2, clock_timestamp() + interval '1 day')", [ids[i], tokens[i]]);

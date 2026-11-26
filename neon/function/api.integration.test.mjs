@@ -1,13 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 import { createHandler } from "./api.mjs";
 
 test("real Postgres schema and HTTP API isolate sessions and complete a two-player round", async (t) => {
   const db = new PGlite();
   t.after(() => db.close());
-  await db.exec(await readFile(new URL("../migrations/20261126000000_riddle_match.sql", import.meta.url), "utf8"));
+  const dir = new URL("../migrations/", import.meta.url);
+  const migrations = (await readdir(dir)).filter((name) => /^\d+_.+\.sql$/.test(name)).sort();
+  assert.ok(migrations.includes("20261126010000_player_blocks.sql"));
+  for (const name of migrations) await db.exec(await readFile(new URL(name, dir), "utf8"));
   const pool = {
     query: (sql, args) => db.query(sql, args),
     connect: async () => ({ query: (sql, args) => db.query(sql, args), release() {} }),
@@ -75,4 +78,32 @@ test("real Postgres schema and HTTP API isolate sessions and complete a two-play
   result = await rpc(guesser, "get_room", roomArg);
   assert.equal(result.body.data.round_number, 2);
   assert.notEqual(result.body.data.setter_id, setter.user_id);
+
+  // A different session cannot block players in a room it never joined.
+  result = await rpc(outsider, "block_opponent", roomArg);
+  assert.equal(result.status, 403);
+  assert.equal(result.body.error.code, "forbidden");
+  result = await rpc(setter, "block_opponent", roomArg);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.data.state, "blocked");
+  result = await rpc(setter, "block_opponent", roomArg);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.data.state, "blocked");
+  result = await rpc(guesser, "get_room", roomArg);
+  assert.equal(result.body.data.status, "abandoned");
+  assert.equal((await rpc(playerA, "join_matchmaking", { p_nickname: "甲" })).body.data.state, "waiting");
+  assert.equal((await rpc(playerB, "join_matchmaking", { p_nickname: "乙" })).body.data.state, "waiting");
+
+  // A participant can also block after the other player has already left.
+  result = await rpc(outsider, "join_matchmaking", { p_nickname: "丙" });
+  assert.equal(result.body.data.state, "matched");
+  const laterRoom = result.body.data.room_id;
+  const laterRoomArg = { p_room_id: laterRoom };
+  result = await rpc(outsider, "get_room", laterRoomArg);
+  const otherId = [result.body.data.player_one_id, result.body.data.player_two_id].find((id) => id !== outsider.user_id);
+  const otherPlayer = otherId === playerA.user_id ? playerA : playerB;
+  assert.equal((await rpc(outsider, "leave_room", laterRoomArg)).status, 200);
+  result = await rpc(otherPlayer, "block_opponent", laterRoomArg);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.data.state, "blocked");
 });

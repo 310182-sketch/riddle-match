@@ -91,6 +91,10 @@ const rpc = {
     sql: "select riddle_match.leave_room($1::uuid) as data",
     args: (b) => { exactKeys(b, ["p_room_id"]); return [uuid(b.p_room_id)]; },
   },
+  block_opponent: {
+    sql: "select riddle_match.block_opponent($1::uuid) as data",
+    args: (b) => { exactKeys(b, ["p_room_id"]); return [uuid(b.p_room_id)]; },
+  },
 };
 
 async function jsonBody(request) {
